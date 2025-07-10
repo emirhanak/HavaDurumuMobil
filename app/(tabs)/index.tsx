@@ -29,7 +29,7 @@ export default function WeatherScreen() {
         {/* Hourly Forecast Card */}
         <View style={styles.cardContainer}>
           <BlurView intensity={80} style={styles.blurCard}>
-            <Text style={styles.cardTitle}>SAATLİK HAVA DURUMU</Text>
+            <Text style={styles.cardTitle}>SAATLİK HAVVA DURUMU</Text>
             <ScrollView 
               horizontal 
               showsHorizontalScrollIndicator={false}
