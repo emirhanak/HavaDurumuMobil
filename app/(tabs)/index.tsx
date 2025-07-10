@@ -23,7 +23,7 @@ export default function WeatherScreen() {
           <Text style={styles.cityName}>Gölcük</Text>
           <Text style={styles.currentTemp}>25°</Text>
           <Text style={styles.weatherCondition}>Parçalı Bulutlu</Text>
-          <Text style={styles.highLowTemp}>H:28° L:19°</Text>
+          <Text style={styles.highLowTemp}>Y:28° D:19°</Text>
         </View>
 
         {/* Hourly Forecast Card */}
