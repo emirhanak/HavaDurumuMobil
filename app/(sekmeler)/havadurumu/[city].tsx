@@ -39,11 +39,11 @@ export default function CityWeatherScreen() {
           contentContainerStyle={styles.scrollContent}
         >
           {/* Main Weather Information */}
-          <View style={styles.mainWeatherSection}>
-            <Text style={styles.cityName}>{city}</Text>
-            <Text style={styles.currentTemp}>{temperature}°</Text>
-            <Text style={styles.weatherCondition}>Parçalı Bulutlu</Text>
-            <Text style={styles.highLowTemp}>H:{parseInt(temperature || '20') + 3}° L:{parseInt(temperature || '20') - 6}°</Text>
+          <View style={styles.anaHavaBolumu}>
+            <Text style={styles.sehirAdi}>{city}</Text>
+            <Text style={styles.anlikSicaklik}>{temperature}°</Text>
+            <Text style={styles.havaDurumu}>Parçalı Bulutlu</Text>
+            <Text style={styles.yuksekDusukSicaklik}>H:{parseInt(temperature || '20') + 3}° L:{parseInt(temperature || '20') - 6}°</Text>
           </View>
 
           {/* Hourly Forecast Card */}
@@ -82,7 +82,7 @@ export default function CityWeatherScreen() {
           <View style={styles.cardContainer}>
             <BlurView intensity={80} style={styles.blurCard}>
               <Text style={styles.cardTitle}>10 GÜNLÜK TAHMİN</Text>
-              <View style={styles.dailyForecastContainer}>
+              <View style={styles.gunlukTahminKapsayici}>
                 {[
                   { day: 'Bugün', icon: <Cloud size={20} color="#ffffff" />, low: `${parseInt(temperature || '20') - 6}°`, high: `${parseInt(temperature || '20') + 3}°`, lowPos: 20, highPos: 80 },
                   { day: 'Cuma', icon: <Sun size={20} color="#ffffff" />, low: `${parseInt(temperature || '20') - 4}°`, high: `${parseInt(temperature || '20') + 5}°`, lowPos: 30, highPos: 85 },
@@ -95,20 +95,20 @@ export default function CityWeatherScreen() {
                   { day: 'Cum', icon: <Cloud size={20} color="#ffffff" />, low: `${parseInt(temperature || '20') - 4}°`, high: `${parseInt(temperature || '20') + 4}°`, lowPos: 30, highPos: 82 },
                   { day: 'Cmt', icon: <Sun size={20} color="#ffffff" />, low: `${parseInt(temperature || '20') - 1}°`, high: `${parseInt(temperature || '20') + 8}°`, lowPos: 45, highPos: 92 },
                 ].map((item, index) => (
-                  <View key={index} style={styles.dailyItem}>
-                    <View style={styles.dailyLeft}>
-                      <Text style={styles.dayText}>{item.day}</Text>
-                      <View style={styles.dailyIcon}>
+                  <View key={index} style={styles.gunlukItem}>
+                    <View style={styles.gunlukSol}>
+                      <Text style={styles.gunText}>{item.day}</Text>
+                      <View style={styles.gunlukIcon}>
                         {item.icon}
                       </View>
                     </View>
-                    <View style={styles.dailyRight}>
-                      <Text style={styles.dailyLowTemp}>{item.low}</Text>
-                      <View style={styles.tempRangeContainer}>
-                        <View style={styles.tempRangeBackground}>
+                    <View style={styles.gunlukSag}>
+                      <Text style={styles.gunlukDusukSicaklik}>{item.low}</Text>
+                      <View style={styles.sicaklikAralikKapsayici}>
+                        <View style={styles.sicaklikAralikArkaPlan}>
                           <View 
                             style={[
-                              styles.tempRangeBar,
+                              styles.sicaklikAralikBar,
                               {
                                 left: `${item.lowPos}%`,
                                 right: `${100 - item.highPos}%`,
@@ -117,7 +117,7 @@ export default function CityWeatherScreen() {
                           />
                         </View>
                       </View>
-                      <Text style={styles.dailyHighTemp}>{item.high}</Text>
+                      <Text style={styles.gunlukYuksekSicaklik}>{item.high}</Text>
                     </View>
                   </View>
                 ))}
@@ -126,7 +126,7 @@ export default function CityWeatherScreen() {
           </View>
 
           {/* Detail Cards Grid */}
-          <View style={styles.detailCardsGrid}>
+          <View style={styles.detayKartlarGrid}>
             {[
               { title: 'HİSSEDİLEN', value: `${parseInt(temperature || '20') + 1}°`, icon: <Thermometer size={20} color="rgba(255, 255, 255, 0.8)" /> },
               { title: 'NEM', value: '55%', icon: <Droplets size={20} color="rgba(255, 255, 255, 0.8)" /> },
@@ -135,13 +135,13 @@ export default function CityWeatherScreen() {
               { title: 'BASINÇ', value: '1015 hPa', icon: <BarChart3 size={20} color="rgba(255, 255, 255, 0.8)" /> },
               { title: 'UV İNDEKSİ', value: 'Yüksek', icon: <Sun size={20} color="rgba(255, 255, 255, 0.8)" /> },
             ].map((item, index) => (
-              <View key={index} style={styles.detailCardContainer}>
-                <BlurView intensity={80} style={styles.detailCard}>
-                  <View style={styles.detailCardIcon}>
+              <View key={index} style={styles.detayKartKapsayici}>
+                <BlurView intensity={80} style={styles.detayKart}>
+                  <View style={styles.detayKartIcon}>
                     {item.icon}
                   </View>
-                  <Text style={styles.detailCardTitle}>{item.title}</Text>
-                  <Text style={styles.detailCardValue}>{item.value}</Text>
+                  <Text style={styles.detayKartBaslik}>{item.title}</Text>
+                  <Text style={styles.detayKartDeger}>{item.value}</Text>
                 </BlurView>
               </View>
             ))}
@@ -170,31 +170,31 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingBottom: 100,
   },
-  mainWeatherSection: {
+  anaHavaBolumu: {
     alignItems: 'center',
     paddingTop: 120,
     paddingHorizontal: 20,
     marginBottom: 40,
   },
-  cityName: {
+  sehirAdi: {
     fontSize: 34,
     fontWeight: '300',
     color: '#ffffff',
     marginBottom: 8,
   },
-  currentTemp: {
+  anlikSicaklik: {
     fontSize: 96,
     fontWeight: '200',
     color: '#ffffff',
     marginBottom: 4,
   },
-  weatherCondition: {
+  havaDurumu: {
     fontSize: 20,
     fontWeight: '400',
     color: '#ffffff',
     marginBottom: 8,
   },
-  highLowTemp: {
+  yuksekDusukSicaklik: {
     fontSize: 20,
     fontWeight: '400',
     color: '#ffffff',
@@ -248,11 +248,11 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#ffffff',
   },
-  dailyForecastContainer: {
+  gunlukTahminKapsayici: {
     paddingHorizontal: 20,
     paddingBottom: 16,
   },
-  dailyItem: {
+  gunlukItem: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -260,73 +260,73 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(255, 255, 255, 0.1)',
   },
-  dailyLeft: {
+  gunlukSol: {
     flexDirection: 'row',
     alignItems: 'center',
     flex: 1,
   },
-  dayText: {
+  gunText: {
     fontSize: 17,
     fontWeight: '400',
     color: '#ffffff',
     width: 50,
   },
-  dailyIcon: {
+  gunlukIcon: {
     marginLeft: 12,
     width: 28,
     height: 28,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  dailyRight: {
+  gunlukSag: {
     flexDirection: 'row',
     alignItems: 'center',
     flex: 1,
     justifyContent: 'flex-end',
   },
-  dailyLowTemp: {
+  gunlukDusukSicaklik: {
     fontSize: 17,
     fontWeight: '400',
     color: 'rgba(255, 255, 255, 0.6)',
     width: 35,
     textAlign: 'right',
   },
-  tempRangeContainer: {
+  sicaklikAralikKapsayici: {
     width: 80,
     height: 20,
     justifyContent: 'center',
     marginHorizontal: 12,
   },
-  tempRangeBackground: {
+  sicaklikAralikArkaPlan: {
     height: 4,
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
     borderRadius: 2,
     position: 'relative',
   },
-  tempRangeBar: {
+  sicaklikAralikBar: {
     position: 'absolute',
     height: 4,
     backgroundColor: 'rgba(255, 255, 255, 0.8)',
     borderRadius: 2,
     top: 0,
   },
-  dailyHighTemp: {
+  gunlukYuksekSicaklik: {
     fontSize: 17,
     fontWeight: '400',
     color: '#ffffff',
     width: 35,
     textAlign: 'right',
   },
-  detailCardsGrid: {
+  detayKartlarGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     paddingHorizontal: 20,
     gap: 12,
   },
-  detailCardContainer: {
+  detayKartKapsayici: {
     width: (width - 52) / 2,
   },
-  detailCard: {
+  detayKart: {
     borderRadius: 16,
     padding: 16,
     backgroundColor: 'rgba(255, 255, 255, 0.1)',
@@ -334,17 +334,17 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255, 255, 255, 0.2)',
     height: 120,
   },
-  detailCardIcon: {
+  detayKartIcon: {
     marginBottom: 8,
   },
-  detailCardTitle: {
+  detayKartBaslik: {
     fontSize: 13,
     fontWeight: '600',
     color: 'rgba(255, 255, 255, 0.8)',
     marginBottom: 4,
     letterSpacing: 0.5,
   },
-  detailCardValue: {
+  detayKartDeger: {
     fontSize: 24,
     fontWeight: '400',
     color: '#ffffff',

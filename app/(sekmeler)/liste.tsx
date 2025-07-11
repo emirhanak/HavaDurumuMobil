@@ -1,15 +1,15 @@
 import React from 'react';
 import { View, Text, StyleSheet, SafeAreaView } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import CitySearch from '@/components/CitySearch';
-import CityList from '@/components/CityList';
-import { useCityStorage } from '@/hooks/useCityStorage';
+import SehirArama from '@/components/SehirArama';
+import SehirListesi from '@/components/SehirListesi';
+import { useSehirler } from '@/hooks/useSehirler';
 
 export default function ListScreen() {
-  const { cities, loading, addCity, removeCity } = useCityStorage();
+  const { sehirler, loading, sehirEkle, sehirKaldir } = useSehirler();
 
-  const handleSelectCity = (city: any) => {
-    // This function is now optional since navigation is handled in CityList
+  const handleSehirSec = (sehir: any) => {
+    // Bu fonksiyon artık opsiyonel, navigasyon SehirListesi içinde
   };
 
   if (loading) {
@@ -32,11 +32,11 @@ export default function ListScreen() {
       />
       <View style={styles.content}>
         <Text style={styles.title}>Şehirler</Text>
-        <CitySearch onAddCity={addCity} existingCities={cities} />
-        <CityList
-          cities={cities}
-          onRemoveCity={removeCity}
-          onSelectCity={handleSelectCity}
+        <SehirArama onSehirEkle={sehirEkle} mevcutSehirler={sehirler} />
+        <SehirListesi
+          sehirler={sehirler}
+          sehirKaldir={sehirKaldir}
+          onSehirSec={handleSehirSec}
         />
       </View>
     </SafeAreaView>

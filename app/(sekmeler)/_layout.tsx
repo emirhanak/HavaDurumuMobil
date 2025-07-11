@@ -25,7 +25,7 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="map"
+        name="harita"
         options={{
           title: 'Harita',
           tabBarIcon: ({ size, color }) => (
@@ -34,7 +34,7 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="list"
+        name="liste"
         options={{
           title: 'Şehirler',
           tabBarIcon: ({ size, color }) => (
@@ -43,7 +43,7 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="weather"
+        name="havadurumu"
         options={{
           title: 'Detay',
           tabBarIcon: ({ size, color }) => (
@@ -53,7 +53,7 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="settings"
+        name="ayarlar"
         options={{
           title: 'Ayarlar',
           tabBarIcon: ({ size, color }) => (

@@ -1,11 +1,11 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import WeatherMap from '@/components/WeatherMap';
-import { useCityStorage } from '@/hooks/useCityStorage';
+import HavaDurumuHaritasi from '@/components/HavaDurumuHaritasi';
+import { useSehirler } from '@/hooks/useSehirler';
 
 export default function MapScreen() {
-  const { cities } = useCityStorage();
+  const { sehirler } = useSehirler();
 
   return (
     <View style={styles.container}>
@@ -13,7 +13,7 @@ export default function MapScreen() {
         colors={['#1e3c72', '#2a5298', '#4c6ef5']}
         style={styles.backgroundGradient}
       />
-      <WeatherMap cities={cities} />
+      <HavaDurumuHaritasi sehirler={sehirler} />
     </View>
   );
 }

@@ -19,35 +19,35 @@ if (Platform.OS !== 'web') {
 
 const { width, height } = Dimensions.get('window');
 
-interface City {
+interface Sehir {
   id: string;
-  name: string;
-  latitude: number;
-  longitude: number;
-  temperature: number;
+  ad: string;
+  enlem: number;
+  boylam: number;
+  sicaklik: number;
 }
 
-interface WeatherMapProps {
-  cities: City[];
+interface HavaDurumuHaritasiProps {
+  sehirler: Sehir[];
 }
 
-type MapLayer = 'precipitation' | 'temperature' | 'air-quality' | 'wind';
+type HaritaKatmani = 'precipitation' | 'sicaklik' | 'air-quality' | 'wind';
 
-const mapLayers: { key: MapLayer; title: string }[] = [
+const haritaKatmanlari: { key: HaritaKatmani; title: string }[] = [
   { key: 'precipitation', title: 'Yağış' },
-  { key: 'temperature', title: 'Sıcaklık' },
+  { key: 'sicaklik', title: 'Sıcaklık' },
   { key: 'air-quality', title: 'Hava Kalitesi' },
   { key: 'wind', title: 'Rüzgar' },
 ];
 
-export default function WeatherMap({ cities }: WeatherMapProps) {
-  const [selectedLayer, setSelectedLayer] = useState<MapLayer>('precipitation');
+export default function HavaDurumuHaritasi({ sehirler }: HavaDurumuHaritasiProps) {
+  const [seciliKatman, setSeciliKatman] = useState<HaritaKatmani>('precipitation');
 
-  const getMarkerColor = (layer: MapLayer) => {
-    switch (layer) {
+  const isaretciRengiGetir = (katman: HaritaKatmani) => {
+    switch (katman) {
       case 'precipitation':
         return '#4A90E2';
-      case 'temperature':
+      case 'sicaklik':
         return '#FF6B6B';
       case 'air-quality':
         return '#4ECDC4';
@@ -58,79 +58,76 @@ export default function WeatherMap({ cities }: WeatherMapProps) {
     }
   };
 
-  const renderWebView = () => (
+  const webGorunumunuRenderla = () => (
     <View style={styles.container}>
       <LinearGradient
         colors={['#1e3c72', '#2a5298', '#4c6ef5']}
         style={styles.backgroundGradient}
       />
-      
-      {/* Map Layer Selector */}
+      {/* Katman Seçici */}
       <View style={styles.layerSelector}>
         <BlurView intensity={80} style={styles.layerSelectorBlur}>
-          {mapLayers.map((layer) => (
+          {haritaKatmanlari.map((katman) => (
             <TouchableOpacity
-              key={layer.key}
+              key={katman.key}
               style={[
                 styles.layerButton,
-                selectedLayer === layer.key && styles.layerButtonActive,
+                seciliKatman === katman.key && styles.layerButtonActive,
               ]}
-              onPress={() => setSelectedLayer(layer.key)}
+              onPress={() => setSeciliKatman(katman.key)}
             >
               <Text
                 style={[
                   styles.layerButtonText,
-                  selectedLayer === layer.key && styles.layerButtonTextActive,
+                  seciliKatman === katman.key && styles.layerButtonTextActive,
                 ]}
               >
-                {layer.title}
+                {katman.title}
               </Text>
             </TouchableOpacity>
           ))}
         </BlurView>
       </View>
 
-      {/* Web Map Placeholder */}
-      <View style={styles.mapPlaceholder}>
-        <BlurView intensity={80} style={styles.mapPlaceholderBlur}>
-          <Text style={styles.mapPlaceholderTitle}>Harita Görünümü</Text>
-          <Text style={styles.mapPlaceholderText}>
+      {/* Web Harita Placeholder */}
+      <View style={styles.haritaplaceholder}>
+        <BlurView intensity={80} style={styles.haritaplaceholderBlurlama}>
+          <Text style={styles.haritaplaceholderBaslik}>Harita Görünümü</Text>
+          <Text style={styles.haritaplaceholderMetin}>
             Web platformunda harita görünümü desteklenmemektedir.
             Mobil uygulamayı kullanarak harita özelliklerini deneyimleyebilirsiniz.
           </Text>
-          
-          {/* City List for Web */}
-          {cities.length > 0 && (
-            <View style={styles.cityList}>
-              <Text style={styles.cityListTitle}>Şehirler:</Text>
-              {cities.map((city) => (
-                <View key={city.id} style={styles.cityItem}>
+          {/* Şehir Listesi */}
+          {sehirler.length > 0 && (
+            <View style={styles.sehirListesi}>
+              <Text style={styles.sehirListesiBaslik}>Şehirler:</Text>
+              {sehirler.map((sehir) => (
+                <View key={sehir.id} style={styles.sehirItem}>
                   <View
                     style={[
-                      styles.cityDot,
-                      { backgroundColor: getMarkerColor(selectedLayer) },
+                      styles.sehirNoktasi,
+                      { backgroundColor: isaretciRengiGetir(seciliKatman) },
                     ]}
                   />
-                  <Text style={styles.cityName}>{city.name}</Text>
-                  <Text style={styles.cityTemp}>{city.temperature}°</Text>
+                  <Text style={styles.sehirAdi}>{sehir.ad}</Text>
+                  <Text style={styles.sehirSicaklik}>{sehir.sicaklik}°</Text>
                 </View>
               ))}
             </View>
           )}
         </BlurView>
       </View>
-
-      {/* Layer Info */}
+      {/* Katman Bilgi */}
       <View style={styles.layerInfo}>
         <BlurView intensity={80} style={styles.layerInfoBlur}>
           <Text style={styles.layerInfoTitle}>
-            {mapLayers.find(l => l.key === selectedLayer)?.title} Haritası
+            {haritaKatmanlari.find(l => l.key === seciliKatman)?.title} Haritası
           </Text>
           <Text style={styles.layerInfoDescription}>
-            {selectedLayer === 'precipitation' && 'Yağış yoğunluğu ve dağılımı'}
-            {selectedLayer === 'temperature' && 'Sıcaklık dağılımı'}
-            {selectedLayer === 'air-quality' && 'Hava kalitesi indeksi'}
-            {selectedLayer === 'wind' && 'Rüzgar hızı ve yönü'}
+            {seciliKatman === 'precipitation' && 'Yağış yoğunluğu ve dağılımı'}
+            {seciliKatman === 'sicaklik' && 'Sıcaklık dağılımı'}
+            {seciliKatman === 'air-quality' && 'Hava kalitesi indeksi'}
+            {seciliKatman === 'wind' && 'Rüzgar hızı ve yönü'}
           </Text>
         </BlurView>
       </View>
@@ -147,22 +144,22 @@ export default function WeatherMap({ cities }: WeatherMapProps) {
       {/* Map Layer Selector */}
       <View style={styles.layerSelector}>
         <BlurView intensity={80} style={styles.layerSelectorBlur}>
-          {mapLayers.map((layer) => (
+          {haritaKatmanlari.map((katman) => (
             <TouchableOpacity
-              key={layer.key}
+              key={katman.key}
               style={[
                 styles.layerButton,
-                selectedLayer === layer.key && styles.layerButtonActive,
+                seciliKatman === katman.key && styles.layerButtonActive,
               ]}
-              onPress={() => setSelectedLayer(layer.key)}
+              onPress={() => setSeciliKatman(katman.key)}
             >
               <Text
                 style={[
                   styles.layerButtonText,
-                  selectedLayer === layer.key && styles.layerButtonTextActive,
+                  seciliKatman === katman.key && styles.layerButtonTextActive,
                 ]}
               >
-                {layer.title}
+                {katman.title}
               </Text>
             </TouchableOpacity>
           ))}
@@ -183,26 +180,28 @@ export default function WeatherMap({ cities }: WeatherMapProps) {
           showsUserLocation={true}
           showsMyLocationButton={false}
         >
-          {cities.map((city) => (
-            <Marker
-              key={city.id}
-              coordinate={{
-                latitude: city.latitude,
-                longitude: city.longitude,
-              }}
-            >
-              <View style={styles.markerContainer}>
-                <BlurView intensity={80} style={styles.markerBlur}>
-                  <View
-                    style={[
-                      styles.markerDot,
-                      { backgroundColor: getMarkerColor(selectedLayer) },
-                    ]}
-                  />
-                  <Text style={styles.markerText}>{city.temperature}°</Text>
-                </BlurView>
-              </View>
-            </Marker>
+          {sehirler.map((sehir) => (
+            Marker && (
+              <Marker
+                key={sehir.id}
+                coordinate={{
+                  latitude: sehir.enlem,
+                  longitude: sehir.boylam,
+                }}
+              >
+                <View style={styles.markerContainer}>
+                  <BlurView intensity={80} style={styles.markerBlur}>
+                    <View
+                      style={[
+                        styles.markerDot,
+                        { backgroundColor: isaretciRengiGetir(seciliKatman) },
+                      ]}
+                    />
+                    <Text style={styles.markerText}>{sehir.sicaklik}°</Text>
+                  </BlurView>
+                </View>
+              </Marker>
+            )
           ))}
         </MapView>
       )}
@@ -211,20 +210,20 @@ export default function WeatherMap({ cities }: WeatherMapProps) {
       <View style={styles.layerInfo}>
         <BlurView intensity={80} style={styles.layerInfoBlur}>
           <Text style={styles.layerInfoTitle}>
-            {mapLayers.find(l => l.key === selectedLayer)?.title} Haritası
+            {haritaKatmanlari.find(l => l.key === seciliKatman)?.title} Haritası
           </Text>
           <Text style={styles.layerInfoDescription}>
-            {selectedLayer === 'precipitation' && 'Yağış yoğunluğu ve dağılımı'}
-            {selectedLayer === 'temperature' && 'Sıcaklık dağılımı'}
-            {selectedLayer === 'air-quality' && 'Hava kalitesi indeksi'}
-            {selectedLayer === 'wind' && 'Rüzgar hızı ve yönü'}
+            {seciliKatman === 'precipitation' && 'Yağış yoğunluğu ve dağılımı'}
+            {seciliKatman === 'sicaklik' && 'Sıcaklık dağılımı'}
+            {seciliKatman === 'air-quality' && 'Hava kalitesi indeksi'}
+            {seciliKatman === 'wind' && 'Rüzgar hızı ve yönü'}
           </Text>
         </BlurView>
       </View>
     </View>
   );
 
-  return Platform.OS === 'web' ? renderWebView() : renderNativeView();
+  return Platform.OS === 'web' ? webGorunumunuRenderla() : renderNativeView();
 }
 
 const styles = StyleSheet.create({
@@ -300,13 +299,13 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#ffffff',
   },
-  mapPlaceholder: {
+  haritaplaceholder: {
     flex: 1,
     margin: 20,
     marginTop: 140,
     marginBottom: 200,
   },
-  mapPlaceholderBlur: {
+  haritaplaceholderBlurlama: {
     flex: 1,
     borderRadius: 16,
     overflow: 'hidden',
@@ -317,32 +316,32 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  mapPlaceholderTitle: {
+  haritaplaceholderBaslik: {
     fontSize: 24,
     fontWeight: '700',
     color: '#ffffff',
     marginBottom: 16,
     textAlign: 'center',
   },
-  mapPlaceholderText: {
+  haritaplaceholderMetin: {
     fontSize: 16,
     color: 'rgba(255, 255, 255, 0.8)',
     textAlign: 'center',
     lineHeight: 24,
     marginBottom: 30,
   },
-  cityList: {
+  sehirListesi: {
     width: '100%',
     maxWidth: 300,
   },
-  cityListTitle: {
+  sehirListesiBaslik: {
     fontSize: 18,
     fontWeight: '600',
     color: '#ffffff',
     marginBottom: 16,
     textAlign: 'center',
   },
-  cityItem: {
+  sehirItem: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 8,
@@ -351,19 +350,19 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     marginBottom: 8,
   },
-  cityDot: {
+  sehirNoktasi: {
     width: 12,
     height: 12,
     borderRadius: 6,
     marginRight: 12,
   },
-  cityName: {
+  sehirAdi: {
     flex: 1,
     fontSize: 16,
     fontWeight: '500',
     color: '#ffffff',
   },
-  cityTemp: {
+  sehirSicaklik: {
     fontSize: 16,
     fontWeight: '600',
     color: '#ffffff',
