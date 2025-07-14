@@ -1,94 +1,90 @@
 import React from 'react';
-import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, ScrollView } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
-import { BlurView } from 'expo-blur';
-import { 
-  Thermometer, 
-  Globe, 
-  Bell, 
-  Palette, 
-  Info, 
-  ChevronRight 
-} from 'lucide-react-native';
+import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, ScrollView, useColorScheme } from 'react-native';
+import { useSettings } from '@/context/SettingsContext';
+import { Thermometer, Palette, Info, Sun, Moon, Smartphone } from 'lucide-react-native';
 
-export default function SettingsScreen() {
-  const settingsItems = [
-    {
-      icon: <Thermometer size={24} color="rgba(255, 255, 255, 0.8)" />,
-      title: 'Sıcaklık Birimi',
-      subtitle: 'Celsius',
-      onPress: () => console.log('Temperature unit'),
+export default function AyarlarEkrani() {
+  const { unit, setUnit, theme, setTheme, colors } = useSettings();
+  const phoneTheme = useColorScheme();
+
+  // Dinamik stilleri component içinde oluşturuyoruz
+  const dynamicStyles = {
+    container: { backgroundColor: colors.background },
+    title: { color: colors.text },
+    sectionTitle: { color: colors.text },
+    subtitle: { color: colors.icon },
+    blur: {
+      backgroundColor: colors.cardBackground,
+      borderColor: colors.borderColor,
     },
-    {
-      icon: <Globe size={24} color="rgba(255, 255, 255, 0.8)" />,
-      title: 'Konum Servisleri',
-      subtitle: 'Açık',
-      onPress: () => console.log('Location services'),
+    border: { borderBottomColor: colors.borderColor },
+    segmentButton: {
+      // Temel stil, aktif olmayınca
     },
-    {
-      icon: <Bell size={24} color="rgba(255, 255, 255, 0.8)" />,
-      title: 'Bildirimler',
-      subtitle: 'Hava durumu uyarıları',
-      onPress: () => console.log('Notifications'),
+    segmentText: {
+      color: colors.text,
     },
-    {
-      icon: <Palette size={24} color="rgba(255, 255, 255, 0.8)" />,
-      title: 'Tema',
-      subtitle: 'Otomatik',
-      onPress: () => console.log('Theme'),
+    segmentButtonActive: {
+      backgroundColor: colors.tint,
     },
-    {
-      icon: <Info size={24} color="rgba(255, 255, 255, 0.8)" />,
-      title: 'Hakkında',
-      subtitle: 'Versiyon 1.0.0',
-      onPress: () => console.log('About'),
+    segmentTextActive: {
+      color: colors.background, // Aktifken arkaplan rengini alır (kontrast için)
     },
-  ];
+    infoText: { color: colors.icon },
+  };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <LinearGradient
-        colors={['#1e3c72', '#2a5298', '#4c6ef5']}
-        style={styles.backgroundGradient}
-      />
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        <Text style={styles.title}>Ayarlar</Text>
+    <SafeAreaView style={[styles.container, dynamicStyles.container]}>
+      <ScrollView style={styles.content}>
+        <Text style={[styles.title, dynamicStyles.title]}>Ayarlar</Text>
         
         <View style={styles.settingsContainer}>
-          <BlurView intensity={80} style={styles.settingsBlur}>
-            {settingsItems.map((item, index) => (
-              <TouchableOpacity
-                key={index}
-                style={[
-                  styles.settingItem,
-                  index < settingsItems.length - 1 && styles.settingItemBorder,
-                ]}
-                onPress={item.onPress}
-              >
-                <View style={styles.settingItemLeft}>
-                  <View style={styles.settingIcon}>
-                    {item.icon}
-                  </View>
-                  <View style={styles.settingText}>
-                    <Text style={styles.settingTitle}>{item.title}</Text>
-                    <Text style={styles.settingSubtitle}>{item.subtitle}</Text>
-                  </View>
-                </View>
-                <ChevronRight size={20} color="rgba(255, 255, 255, 0.4)" />
-              </TouchableOpacity>
-            ))}
-          </BlurView>
-        </View>
+          <View style={[styles.settingsBlur, dynamicStyles.blur]}>
+            {/* Sıcaklık Birimi */}
+            <View style={[styles.settingItem, styles.settingItemBorder, dynamicStyles.border]}>
+              <View style={styles.settingItemLeft}>
+                <Thermometer size={22} color={colors.icon} />
+                <Text style={[styles.settingTitle, dynamicStyles.sectionTitle]}>Sıcaklık Birimi</Text>
+              </View>
+              <View style={styles.segmentedControl}>
+                <TouchableOpacity 
+                  style={[styles.segmentButton, unit === 'C' && dynamicStyles.segmentButtonActive]}
+                  onPress={() => setUnit('C')}>
+                  <Text style={[styles.segmentText, unit === 'C' ? dynamicStyles.segmentTextActive : dynamicStyles.segmentText]}>°C</Text>
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  style={[styles.segmentButton, unit === 'F' && dynamicStyles.segmentButtonActive]}
+                  onPress={() => setUnit('F')}>
+                  <Text style={[styles.segmentText, unit === 'F' ? dynamicStyles.segmentTextActive : dynamicStyles.segmentText]}>°F</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
 
-        <View style={styles.infoContainer}>
-          <BlurView intensity={80} style={styles.infoBlur}>
-            <Text style={styles.infoTitle}>Hava Durumu Uygulaması</Text>
-            <Text style={styles.infoDescription}>
-              Bu uygulama, güncel hava durumu bilgilerini ve tahminlerini 
-              görüntülemenizi sağlar. Şehir ekleyerek farklı konumların 
-              hava durumunu takip edebilirsiniz.
-            </Text>
-          </BlurView>
+            {/* Tema */}
+            <View style={styles.settingItem}>
+              <View style={styles.settingItemLeft}>
+                <Palette size={22} color={colors.icon} />
+                <Text style={[styles.settingTitle, dynamicStyles.sectionTitle]}>Tema</Text>
+              </View>
+              <View style={styles.segmentedControl}>
+                 <TouchableOpacity 
+                    style={[styles.segmentButton, theme === 'light' && dynamicStyles.segmentButtonActive]}
+                    onPress={() => setTheme('light')}>
+                    <Sun size={18} color={theme === 'light' ? dynamicStyles.segmentTextActive.color : colors.text} />
+                  </TouchableOpacity>
+                  <TouchableOpacity 
+                    style={[styles.segmentButton, theme === 'dark' && dynamicStyles.segmentButtonActive]}
+                    onPress={() => setTheme('dark')}>
+                    <Moon size={18} color={theme === 'dark' ? dynamicStyles.segmentTextActive.color : colors.text} />
+                  </TouchableOpacity>
+                  <TouchableOpacity 
+                    style={[styles.segmentButton, theme === 'automatic' && dynamicStyles.segmentButtonActive]}
+                    onPress={() => setTheme('automatic')}>
+                    <Smartphone size={18} color={theme === 'automatic' ? dynamicStyles.segmentTextActive.color : colors.text} />
+                  </TouchableOpacity>
+              </View>
+            </View>
+          </View>
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -98,7 +94,6 @@ export default function SettingsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#1e3c72',
   },
   backgroundGradient: {
     position: 'absolute',
@@ -115,7 +110,6 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 34,
     fontWeight: '700',
-    color: '#ffffff',
     marginBottom: 30,
   },
   settingsContainer: {
@@ -124,9 +118,7 @@ const styles = StyleSheet.create({
   settingsBlur: {
     borderRadius: 16,
     overflow: 'hidden',
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
   },
   settingItem: {
     flexDirection: 'row',
@@ -137,7 +129,6 @@ const styles = StyleSheet.create({
   },
   settingItemBorder: {
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
   },
   settingItemLeft: {
     flexDirection: 'row',
@@ -153,33 +144,26 @@ const styles = StyleSheet.create({
   settingTitle: {
     fontSize: 17,
     fontWeight: '600',
-    color: '#ffffff',
     marginBottom: 2,
   },
   settingSubtitle: {
     fontSize: 15,
-    color: 'rgba(255, 255, 255, 0.6)',
   },
-  infoContainer: {
-    marginBottom: 30,
-  },
-  infoBlur: {
-    borderRadius: 16,
+  segmentedControl: {
+    flexDirection: 'row',
+    borderRadius: 8,
     overflow: 'hidden',
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
-    padding: 20,
+    borderColor: 'rgba(255, 255, 255, 0.3)'
   },
-  infoTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#ffffff',
-    marginBottom: 12,
+  segmentButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  infoDescription: {
+  segmentText: {
     fontSize: 16,
-    color: 'rgba(255, 255, 255, 0.8)',
-    lineHeight: 24,
+    fontWeight: '600'
   },
 });

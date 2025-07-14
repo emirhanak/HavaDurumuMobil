@@ -5,12 +5,13 @@ import {
   TouchableOpacity,
   FlatList,
   StyleSheet,
-  Alert,
 } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { MapPin, Trash2 } from 'lucide-react-native';
 import { router } from 'expo-router';
-
+import { useSettings } from '@/context/SettingsContext';
+import { useSehirler } from '@/context/SehirContext';
+// 1. DÜZELTME: Sehir tipini tam olarak tanımlıyoruz
 interface Sehir {
   id: string;
   ad: string;
@@ -19,63 +20,65 @@ interface Sehir {
   sicaklik: number;
 }
 
+// 2. DÜZELTME: Component'in alacağı tüm prop'ları eksiksiz tanımlıyoruz
 interface SehirListesiProps {
   sehirler: Sehir[];
   sehirKaldir: (sehirId: string) => void;
-  onSehirSec?: (sehir: Sehir) => void;
+  setAktifSehir: (sehir: Sehir) => void;
+  ListHeaderComponent: React.ReactElement;
 }
 
-export default function SehirListesi({ sehirler, sehirKaldir, onSehirSec }: SehirListesiProps) {
-  const sehirSecHandler = (sehir: Sehir) => {
-    sehirKaldir(sehir.id);
-  };
+export default function SehirListesi({
+  sehirler,
+  sehirKaldir,
+  setAktifSehir,
+  ListHeaderComponent,
+}: SehirListesiProps) {
+  const { colors, theme } = useSettings();
+  const { aktifSehir } = useSehirler();
 
   const handleSehirPress = (sehir: Sehir) => {
-    router.push(`/(sekmeler)/havadurumu/${encodeURIComponent(sehir.ad)}?sicaklik=${sehir.sicaklik}` as any);
+    setAktifSehir(sehir);
+    router.push('/');
   };
-  const sehirRender = ({ item }: { item: Sehir }) => (
-    <TouchableOpacity
-      style={styles.sehirItem}
-      onPress={() => {
-        sehirSecHandler(item);
-        if (onSehirSec) onSehirSec(item);
-      }}
-    >
-      <BlurView intensity={80} style={styles.sehirItemBlurlama}>
-        <View style={styles.sehirItemContent}>
+  
+  const cardStyle = theme === 'light' ? styles.cardShadow : {};
+
+  const sehirRender = ({ item }: { item: Sehir }) => {
+    const isActive = aktifSehir?.id === item.id;
+    return (
+      <TouchableOpacity
+        style={styles.sehirItem}
+        onPress={() => handleSehirPress(item)}
+      >
+        <View style={[ styles.sehirItemContainer, cardStyle, { backgroundColor: isActive ? colors.tint + '30' : colors.cardBackground, borderColor: isActive ? colors.tint : colors.borderColor } ]}>
           <View style={styles.sehirInfo}>
-            <View style={styles.sehirHeader}>
-              <MapPin size={16} color="rgba(255, 255, 255, 0.6)" />
-              <Text style={styles.sehirAdi}>{item.ad}</Text>
-            </View>
-            <Text style={styles.sehirKoordinat}>
-              {item.enlem}, {item.boylam}
-            </Text>
+            <MapPin size={16} color={colors.icon} />
+            <Text style={[styles.sehirAdi, { color: colors.text }]}>{item.ad}</Text>
           </View>
           <View style={styles.sehirIslemleri}>
-            <Text style={styles.sehirSicaklik}>{item.sicaklik}°</Text>
+            <Text style={[styles.sehirSicaklik, { color: colors.text }]}>{item.sicaklik}°</Text>
             <TouchableOpacity
               style={styles.kaldirButonu}
-              onPress={() => sehirSecHandler(item)}
+              onPress={() => sehirKaldir(item.id)}
             >
-              <Trash2 size={18} color="rgba(255, 255, 255, 0.6)" />
+              <Trash2 size={18} color={colors.icon} />
             </TouchableOpacity>
           </View>
         </View>
-      </BlurView>
-    </TouchableOpacity>
-  );
+      </TouchableOpacity>
+    );
+  };
 
   if (sehirler.length === 0) {
     return (
-      <View style={styles.bosContainer}>
-        <BlurView intensity={80} style={styles.bosBlurlama}>
-          <MapPin size={48} color="rgba(255, 255, 255, 0.4)" />
-          <Text style={styles.bosTitle}>Henüz şehir eklenmedi</Text>
-          <Text style={styles.bosAciklama}>
-            Şehir eklemek için arama yapın ve ekleyin.
-          </Text>
-        </BlurView>
+      <View style={styles.listeBosKapsayici}>
+        {ListHeaderComponent}
+        <View style={styles.bosContainer}>
+          <MapPin size={48} color={colors.icon} />
+          <Text style={[styles.bosTitle, { color: colors.text }]}>Henüz şehir eklenmedi</Text>
+          <Text style={[styles.bosAciklama, { color: colors.icon }]}>Arama çubuğunu kullanarak yeni bir şehir ekleyin.</Text>
+        </View>
       </View>
     );
   }
@@ -85,94 +88,23 @@ export default function SehirListesi({ sehirler, sehirKaldir, onSehirSec }: Sehi
       data={sehirler}
       renderItem={sehirRender}
       keyExtractor={(item) => item.id}
-      style={styles.liste}
-      contentContainerStyle={styles.listeContent}
+      ListHeaderComponent={ListHeaderComponent}
+      contentContainerStyle={{ paddingTop: 10 }}
     />
   );
 }
 
 const styles = StyleSheet.create({
-  liste: {
-    flex: 1,
-  },
-  listeContent: {
-    paddingBottom: 20,
-  },
-  sehirItem: {
-    marginBottom: 12,
-  },
-  sehirItemBlurlama: {
-    borderRadius: 16,
-    overflow: 'hidden',
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
-  },
-  sehirItemContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 16,
-  },
-  sehirInfo: {
-    flex: 1,
-  },
-  sehirHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 4,
-  },
-  sehirAdi: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#ffffff',
-    marginLeft: 8,
-  },
-  sehirKoordinat: {
-    fontSize: 14,
-    color: 'rgba(255, 255, 255, 0.6)',
-    marginLeft: 24,
-  },
-  sehirIslemleri: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  sehirSicaklik: {
-    fontSize: 24,
-    fontWeight: '300',
-    color: '#ffffff',
-    marginRight: 16,
-  },
-  kaldirButonu: {
-    padding: 8,
-  },
-  bosContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 40,
-  },
-  bosBlurlama: {
-    borderRadius: 20,
-    overflow: 'hidden',
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
-    padding: 32,
-    alignItems: 'center',
-  },
-  bosTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#ffffff',
-    marginTop: 16,
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  bosAciklama: {
-    fontSize: 16,
-    color: 'rgba(255, 255, 255, 0.6)',
-    textAlign: 'center',
-    lineHeight: 22,
-  },
+  cardShadow: { shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 8, elevation: 5 },
+  sehirItem: { paddingHorizontal: 16, marginBottom: 12 },
+  sehirItemContainer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16, borderRadius: 12, borderWidth: 1 },
+  sehirInfo: { flexDirection: 'row', alignItems: 'center' },
+  sehirAdi: { fontSize: 18, fontWeight: '600', marginLeft: 12 },
+  sehirIslemleri: { flexDirection: 'row', alignItems: 'center' },
+  sehirSicaklik: { fontSize: 24, fontWeight: '300', marginRight: 16 },
+  kaldirButonu: { padding: 8 },
+  listeBosKapsayici: { flex: 1 },
+  bosContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 },
+  bosTitle: { fontSize: 20, fontWeight: '600', marginTop: 16, marginBottom: 8, textAlign: 'center' },
+  bosAciklama: { fontSize: 16, textAlign: 'center', lineHeight: 22 },
 });

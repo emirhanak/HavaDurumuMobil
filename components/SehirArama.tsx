@@ -1,15 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  FlatList,
-  StyleSheet,
-  Keyboard,
-} from 'react-native';
-import { BlurView } from 'expo-blur';
+import { View, Text, TextInput, TouchableOpacity, FlatList, StyleSheet, Keyboard } from 'react-native';
 import { Search, Plus } from 'lucide-react-native';
+import { useSettings } from '@/context/SettingsContext';
+import SEHIR_DATABASE from '../mocks/mockSehirlerTR.json';
 
 interface Sehir {
   id: string;
@@ -24,8 +17,9 @@ interface SehirAramaProps {
   mevcutSehirler: Sehir[];
 }
 
+
 // Mock city database - in a real app, this would come from an API
-const SEHIR_DATABASE: Omit<Sehir, 'id' | 'sicaklik'>[] = [
+/*const SEHIR_DATABASE: Omit<Sehir, 'id' | 'sicaklik'>[] = [
   { ad: 'Ankara', enlem: 39.9334, boylam: 32.8597 },
   { ad: 'İstanbul', enlem: 41.0082, boylam: 28.9784 },
   { ad: 'İzmir', enlem: 38.4192, boylam: 27.1287 },
@@ -47,78 +41,57 @@ const SEHIR_DATABASE: Omit<Sehir, 'id' | 'sicaklik'>[] = [
   { ad: 'Trabzon', enlem: 41.0015, boylam: 39.7178 },
   { ad: 'Samsun', enlem: 41.2928, boylam: 36.3313 },
 ];
+*/
 
 export default function SehirArama({ onSehirEkle, mevcutSehirler }: SehirAramaProps) {
+  const { colors, theme } = useSettings();
   const [aramaMetni, setAramaMetni] = useState('');
   const [oneriler, setOneriler] = useState<Omit<Sehir, 'id' | 'sicaklik'>[]>([]);
-  const [onerileriGoster, setOnerileriGoster] = useState(false);
 
   useEffect(() => {
-    if (aramaMetni.length > 0) {
-      const filtrelenen = SEHIR_DATABASE.filter(
-        (sehir) =>
-          sehir.ad.toLowerCase().includes(aramaMetni.toLowerCase()) &&
-          !mevcutSehirler.some((mevcut) => mevcut.ad === sehir.ad)
-      );
-      setOneriler(filtrelenen);
-      setOnerileriGoster(true);
-    } else {
-      setOneriler([]);
-      setOnerileriGoster(false);
-    }
+    setOneriler(aramaMetni.length > 0 ? SEHIR_DATABASE.filter(s => s.ad.toLowerCase().includes(aramaMetni.toLowerCase()) && !mevcutSehirler.some(m => m.ad === s.ad)) : []);
   }, [aramaMetni, mevcutSehirler]);
 
   const sehirEkleHandler = (sehirVerisi: Omit<Sehir, 'id' | 'sicaklik'>) => {
-    const yeniSehir: Sehir = {
-      ...sehirVerisi,
-      id: Date.now().toString(),
-      sicaklik: Math.floor(Math.random() * 30) + 5,
-    };
+    const yeniSehir: Sehir = { ...sehirVerisi, id: Date.now().toString(), sicaklik: Math.floor(Math.random() * 30) + 5 };
     onSehirEkle(yeniSehir);
     setAramaMetni('');
-    setOnerileriGoster(false);
     Keyboard.dismiss();
   };
 
-  const oneriyiRenderla = ({ item }: { item: Omit<Sehir, 'id' | 'sicaklik'> }) => (
-    <TouchableOpacity
-      style={styles.oneriItem}
-      onPress={() => sehirEkleHandler(item)}
-    >
-      <Text style={styles.oneriMetni}>{item.ad}</Text>
-      <Plus size={20} color="rgba(255, 255, 255, 0.6)" />
-    </TouchableOpacity>
-  );
+  const cardStyle = theme === 'light' ? styles.cardShadow : {};
 
   return (
     <View style={styles.kapsayici}>
-      <BlurView intensity={80} style={styles.containerAra}>
+      <View style={[styles.containerAra, cardStyle, { backgroundColor: colors.cardBackground, borderColor: colors.borderColor }]}>
         <View style={styles.inputContainerAra}>
-          <Search size={20} color="rgba(255, 255, 255, 0.6)" style={styles.iconAra} />
+          <Search size={20} color={colors.icon} style={styles.iconAra} />
           <TextInput
-            style={styles.inputAra}
+            style={[styles.inputAra, { color: colors.text }]}
             placeholder="Şehir ara..."
-            placeholderTextColor="rgba(255, 255, 255, 0.6)"
+            placeholderTextColor={colors.icon}
             value={aramaMetni}
             onChangeText={setAramaMetni}
-            autoCapitalize="words"
-            autoCorrect={false}
           />
         </View>
-      </BlurView>
+      </View>
 
-      {onerileriGoster && oneriler.length > 0 && (
+      {oneriler.length > 0 && (
         <View style={styles.containerOnerileri}>
-          <BlurView intensity={80} style={styles.onerilerBlurlama}>
+          <View style={[styles.onerilerKutusu, cardStyle, { backgroundColor: colors.cardBackground, borderColor: colors.borderColor }]}>
             <FlatList
               data={oneriler}
-              renderItem={oneriyiRenderla}
+              renderItem={({ item }) => (
+                <TouchableOpacity style={styles.oneriItem} onPress={() => sehirEkleHandler(item)}>
+                  <Text style={[styles.oneriMetni, { color: colors.text }]}>{item.ad}</Text>
+                  <Plus size={20} color={colors.icon} />
+                </TouchableOpacity>
+              )}
               keyExtractor={(item) => item.ad}
-              style={styles.onerilerListesi}
-              showsVerticalScrollIndicator={false}
+              ItemSeparatorComponent={() => <View style={[styles.ayirici, { backgroundColor: colors.borderColor }]} />}
               keyboardShouldPersistTaps="handled"
             />
-          </BlurView>
+          </View>
         </View>
       )}
     </View>
@@ -126,57 +99,15 @@ export default function SehirArama({ onSehirEkle, mevcutSehirler }: SehirAramaPr
 }
 
 const styles = StyleSheet.create({
-  kapsayici: {
-    marginBottom: 20,
-  },
-  containerAra: {
-    borderRadius: 16,
-    overflow: 'hidden',
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
-  },
-  inputContainerAra: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
-  iconAra: {
-    marginRight: 12,
-  },
-  inputAra: {
-    flex: 1,
-    fontSize: 16,
-    color: '#ffffff',
-    fontWeight: '400',
-  },
-  containerOnerileri: {
-    marginTop: 8,
-    maxHeight: 200,
-  },
-  onerilerBlurlama: {
-    borderRadius: 16,
-    overflow: 'hidden',
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
-  },
-  onerilerListesi: {
-    maxHeight: 200,
-  },
-  oneriItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
-  },
-  oneriMetni: {
-    fontSize: 16,
-    color: '#ffffff',
-    fontWeight: '400',
-  },
+  kapsayici: { zIndex: 10 },
+  containerAra: { borderRadius: 12, borderWidth: 1 },
+  cardShadow: { shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 8, elevation: 5 },
+  inputContainerAra: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, height: 50 },
+  iconAra: { marginRight: 12 },
+  inputAra: { flex: 1, fontSize: 16, fontWeight: '400' },
+  containerOnerileri: { position: 'absolute', top: 55, left: 0, right: 0 },
+  onerilerKutusu: { borderRadius: 12, borderWidth: 1, maxHeight: 220 },
+  oneriItem: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12 },
+  oneriMetni: { fontSize: 16, fontWeight: '400' },
+  ayirici: { height: 1 }
 });
