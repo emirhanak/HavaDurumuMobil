@@ -1,10 +1,11 @@
-import { Tabs } from 'expo-router';
+import { Tabs, router } from 'expo-router'; // <-- DÜZELTME: 'router' buraya import edildi
 import { Cloud, Map, List, Settings } from 'lucide-react-native';
-import { useSettings, SettingsProvider } from '@/context/SettingsContext';
+import { useSettings } from '@/context/SettingsContext';
+import { useSehirler } from '@/context/SehirContext';
 
-// Bu iç component, renkleri context'ten alıp Tabs'e uygular
 function ThemedTabs() {
   const { colors } = useSettings();
+  const { setMod } = useSehirler();
 
   return (
     <Tabs
@@ -23,15 +24,20 @@ function ThemedTabs() {
         tabBarInactiveTintColor: colors.icon,
       }}
     >
-      {/* 1. Sekme: Hava Durumu -> index.tsx dosyasını kullanır */}
       <Tabs.Screen
         name="index"
         options={{
           title: 'Hava Durumu',
           tabBarIcon: ({ size, color }) => <Cloud size={size} color={color} />,
         }}
+        listeners={{
+          tabPress: (e) => {
+            e.preventDefault();
+            setMod('konum');
+            router.push('/'); // Artık 'router' tanınıyor
+          },
+        }}
       />
-      {/* 2. Sekme: Harita -> harita.tsx dosyasını kullanır */}
       <Tabs.Screen
         name="harita"
         options={{
@@ -39,7 +45,6 @@ function ThemedTabs() {
           tabBarIcon: ({ size, color }) => <Map size={size} color={color} />,
         }}
       />
-      {/* 3. Sekme: Şehirler -> liste.tsx dosyasını kullanır */}
       <Tabs.Screen
         name="liste"
         options={{
@@ -47,7 +52,6 @@ function ThemedTabs() {
           tabBarIcon: ({ size, color }) => <List size={size} color={color} />,
         }}
       />
-      {/* 4. Sekme: Ayarlar -> ayarlar.tsx dosyasını kullanır */}
       <Tabs.Screen
         name="ayarlar"
         options={{
@@ -56,7 +60,7 @@ function ThemedTabs() {
         }}
       />
       
-      {/* Bu ekran sekme barında görünmez, sadece yönlendirme için var */}
+      {/* Bu satır, (sekmeler) içindeki 'havadurumu' klasörünün bir sekme olmasını engeller */}
       <Tabs.Screen
         name="havadurumu"
         options={{
@@ -67,11 +71,6 @@ function ThemedTabs() {
   );
 }
 
-// Ana Layout component'i
 export default function TabLayout() {
-  return (
-    <SettingsProvider>
-      <ThemedTabs />
-    </SettingsProvider>
-  );
+  return <ThemedTabs />;
 }
