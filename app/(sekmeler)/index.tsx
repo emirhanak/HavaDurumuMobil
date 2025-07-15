@@ -1,68 +1,77 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
-import { useFocusEffect, router } from 'expo-router';
+import { View, Text, StyleSheet, ActivityIndicator, Button } from 'react-native';
+import { useFocusEffect } from 'expo-router';
 import * as Location from 'expo-location';
 import { useSettings } from '@/context/SettingsContext';
-import { useSehirler } from '@/context/SehirContext';
-import mockHavaVerisi from '@/mocks/mockHavaDetay.json';
 import HavaDurumuDetay from '@/components/HavaDurumuDetay';
+import { fetchWeatherFromBackend } from '@/services/havaDurumuService';
+
+interface Sehir {
+  id: string;
+  ad: string;
+  enlem: number;
+  boylam: number;
+  sicaklik: number;
+}
 
 export default function AnaHavaDurumuSekmesi() {
   const { colors } = useSettings();
-  const { mod, aktifSehir, loading: sehirlerLoading } = useSehirler();
-
   const [weatherData, setWeatherData] = useState<any>(null);
-  const [isTabLoading, setIsTabLoading] = useState(true);
+  const [konumSehri, setKonumSehri] = useState<Sehir | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const [hataMesaji, setHataMesaji] = useState<string | null>(null);
 
   useFocusEffect(
     useCallback(() => {
-      let isActive = true;
-
-      const veriYukle = async () => {
-        if (!isActive) return;
-
-        setIsTabLoading(true);
+      // Async fonksiyonu burada tanımlıyoruz
+      const getKonumVeHavaDurumu = async () => {
+        setIsLoading(true);
         setHataMesaji(null);
 
+        let { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== 'granted') {
+          setHataMesaji('Hava durumunu göstermek için konum izni gereklidir.');
+          setIsLoading(false);
+          return;
+        }
         try {
-          if (mod === 'konum') {
-            let { status } = await Location.requestForegroundPermissionsAsync();
-            if (status !== 'granted') {
-              setHataMesaji('Hava durumunu göstermek için konum izni gerekiyor.');
-              setIsTabLoading(false);
-              return;
-            }
-            let location = await Location.getCurrentPositionAsync({});
-            // API'ye geçince bu kısım gerçek veriyle dolacak
-            const konumSehri = { id: 'konum', ad: 'Konumum', enlem: location.coords.latitude, boylam: location.coords.longitude, sicaklik: mockHavaVerisi.currentWeather.temperature };
-            setWeatherData({ sehir: konumSehri, ...mockHavaVerisi });
+          let location = await Location.getCurrentPositionAsync({});
+          const { latitude, longitude } = location.coords;
 
-          } else if (mod === 'sehir' && aktifSehir) {
-            // API'ye geçince bu kısım aktif şehrin verisiyle dolacak
-            setWeatherData({ sehir: aktifSehir, ...mockHavaVerisi });
+          let geocode = await Location.reverseGeocodeAsync({ latitude, longitude });
+          const sehirAdi = geocode[0]?.city || 'Konumum';
+
+          const data = await fetchWeatherFromBackend(latitude, longitude);
+          
+          if (!data || !data.anlikHavaDurumu) {
+            throw new Error("API'den gelen veri formatı hatalı.");
           }
-        } catch (error) {
-          setHataMesaji('Bir hata oluştu. Lütfen tekrar deneyin.');
+
+          const anlikKonumSehri: Sehir = { 
+              id: 'konum', 
+              ad: sehirAdi, 
+              enlem: latitude, 
+              boylam: longitude, 
+              sicaklik: data.anlikHavaDurumu.sicaklik 
+          };
+          
+          setKonumSehri(anlikKonumSehri);
+          setWeatherData(data);
+
+        } catch (error: any) {
+          setHataMesaji(error.message || 'Konum bilgisi alınamadı veya sunucuya ulaşılamadı.');
           console.error(error);
         } finally {
-          if (isActive) {
-            setIsTabLoading(false);
-          }
+          setIsLoading(false);
         }
       };
 
-      // Eğer şehirler hala yükleniyorsa bekle, bittiyse veriyi yükle
-      if (!sehirlerLoading) {
-        veriYukle();
-      }
-
-      return () => { isActive = false; };
-    }, [mod, aktifSehir, sehirlerLoading])
+      // ve burada çağırıyoruz
+      getKonumVeHavaDurumu();
+    }, [])
   );
 
-  // Genel yükleme durumu (ilk şehir listesi veya detay yüklemesi)
-  if (sehirlerLoading || (isTabLoading && (mod === 'konum' || aktifSehir))) {
+  if (isLoading) {
     return (
       <View style={[styles.center, { backgroundColor: colors.background }]}>
         <ActivityIndicator size="large" color={colors.text} />
@@ -70,25 +79,20 @@ export default function AnaHavaDurumuSekmesi() {
     );
   }
 
-  // Hata durumu
   if (hataMesaji) {
     return (
       <View style={[styles.center, { backgroundColor: colors.background, padding: 20 }]}>
-        <Text style={{ color: colors.text, textAlign: 'center' }}>{hataMesaji}</Text>
+        <Text style={{ color: colors.text, textAlign: 'center', marginBottom: 20 }}>{hataMesaji}</Text>
+        {/* Buton tekrar deneme fonksiyonunu çağırabilir ancak focus efekti zaten yeniden tetikleyecektir. */}
       </View>
     );
   }
   
-  // Gösterilecek veri varsa, detay component'ini render et
-  if (weatherData && weatherData.sehir) {
-    return <HavaDurumuDetay sehir={weatherData.sehir} weatherData={weatherData} />;
+  if (weatherData && konumSehri) {
+    return <HavaDurumuDetay sehir={konumSehri} weatherData={weatherData} />;
   }
 
-  // Diğer tüm durumlar için (örn: hiç şehir eklenmemiş ve yönlendirme bekleniyor)
-  // boş veya bir yükleme ekranı göster
-  return (
-     <View style={[styles.center, { backgroundColor: colors.background }]} />
-  );
+  return <View style={[styles.center, { backgroundColor: colors.background }]} />;
 }
 
 const styles = StyleSheet.create({

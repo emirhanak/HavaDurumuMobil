@@ -1,23 +1,25 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, FlatList, StyleSheet, Keyboard } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, FlatList, StyleSheet, Keyboard, Alert } from 'react-native';
 import { Search, Plus } from 'lucide-react-native';
 import { useSettings } from '@/context/SettingsContext';
 import SEHIR_DATABASE from '../mocks/mockSehirlerTR.json';
+import { fetchWeatherFromBackend } from '@/services/havaDurumuService';
 
+// DÜZELTME: Interface'i en düşük ve en yüksek sıcaklıkları içerecek şekilde güncelliyoruz
 interface Sehir {
   id: string;
   ad: string;
   enlem: number;
   boylam: number;
   sicaklik: number;
+  enDusuk: number;
+  enYuksek: number;
 }
 
 interface SehirAramaProps {
   onSehirEkle: (sehir: Sehir) => void;
   mevcutSehirler: Sehir[];
 }
-
-
 // Mock city database - in a real app, this would come from an API
 /*const SEHIR_DATABASE: Omit<Sehir, 'id' | 'sicaklik'>[] = [
   { ad: 'Ankara', enlem: 39.9334, boylam: 32.8597 },
@@ -46,20 +48,52 @@ interface SehirAramaProps {
 export default function SehirArama({ onSehirEkle, mevcutSehirler }: SehirAramaProps) {
   const { colors, theme } = useSettings();
   const [aramaMetni, setAramaMetni] = useState('');
-  const [oneriler, setOneriler] = useState<Omit<Sehir, 'id' | 'sicaklik'>[]>([]);
+  const [oneriler, setOneriler] = useState<Omit<Sehir, 'id' | 'sicaklik' | 'enDusuk' | 'enYuksek'>[]>([]);
 
   useEffect(() => {
     setOneriler(aramaMetni.length > 0 ? SEHIR_DATABASE.filter(s => s.ad.toLowerCase().includes(aramaMetni.toLowerCase()) && !mevcutSehirler.some(m => m.ad === s.ad)) : []);
   }, [aramaMetni, mevcutSehirler]);
 
-  const sehirEkleHandler = (sehirVerisi: Omit<Sehir, 'id' | 'sicaklik'>) => {
-    const yeniSehir: Sehir = { ...sehirVerisi, id: Date.now().toString(), sicaklik: Math.floor(Math.random() * 30) + 5 };
-    onSehirEkle(yeniSehir);
-    setAramaMetni('');
-    Keyboard.dismiss();
-  };
+  const sehirEkleHandler = async (sehirVerisi: Omit<Sehir, 'id' | 'sicaklik' | 'enDusuk' | 'enYuksek'>) => {
+    try {
+      const anlikVeri = await fetchWeatherFromBackend(sehirVerisi.enlem, sehirVerisi.boylam);
+      if (!anlikVeri || !anlikVeri.anlikHavaDurumu) {
+        throw new Error('API yanıtı beklenen formatta değil.');
+      }
+      
+      const anlikSicaklik = Math.round(anlikVeri.anlikHavaDurumu.sicaklik);
+      const enDusukSicaklik = Math.round(anlikVeri.anlikHavaDurumu.enDusuk);
+      const enYuksekSicaklik = Math.round(anlikVeri.anlikHavaDurumu.enYuksek);
 
+      const yeniSehir: Sehir = {
+        ...sehirVerisi,
+        id: Date.now().toString(),
+        sicaklik: anlikSicaklik,
+        enDusuk: enDusukSicaklik,
+        enYuksek: enYuksekSicaklik,
+      };
+      
+      onSehirEkle(yeniSehir);
+      setAramaMetni('');
+      Keyboard.dismiss();
+
+    } catch (error) {
+      console.error("Şehir eklenirken sıcaklık alınamadı:", error);
+      Alert.alert('Hata', 'Şehir eklenemedi. Lütfen internet bağlantınızı ve backend sunucunuzun çalıştığını kontrol edin.');
+    }
+  };
+  
   const cardStyle = theme === 'light' ? styles.cardShadow : {};
+
+  const oneriyiRenderla = ({ item }: { item: Omit<Sehir, 'id' | 'sicaklik' | 'enDusuk' | 'enYuksek'> }) => (
+    <TouchableOpacity 
+      style={[styles.oneriItem, { borderBottomColor: colors.borderColor }]} 
+      onPress={() => sehirEkleHandler(item)}
+    >
+      <Text style={[styles.oneriMetni, { color: colors.text }]}>{item.ad}</Text>
+      <Plus size={20} color={colors.icon} />
+    </TouchableOpacity>
+  );
 
   return (
     <View style={styles.kapsayici}>
@@ -72,21 +106,17 @@ export default function SehirArama({ onSehirEkle, mevcutSehirler }: SehirAramaPr
             placeholderTextColor={colors.icon}
             value={aramaMetni}
             onChangeText={setAramaMetni}
+            autoCapitalize="words"
+            autoCorrect={false}
           />
         </View>
       </View>
-
       {oneriler.length > 0 && (
         <View style={styles.containerOnerileri}>
           <View style={[styles.onerilerKutusu, cardStyle, { backgroundColor: colors.cardBackground, borderColor: colors.borderColor }]}>
             <FlatList
               data={oneriler}
-              renderItem={({ item }) => (
-                <TouchableOpacity style={styles.oneriItem} onPress={() => sehirEkleHandler(item)}>
-                  <Text style={[styles.oneriMetni, { color: colors.text }]}>{item.ad}</Text>
-                  <Plus size={20} color={colors.icon} />
-                </TouchableOpacity>
-              )}
+              renderItem={oneriyiRenderla}
               keyExtractor={(item) => item.ad}
               ItemSeparatorComponent={() => <View style={[styles.ayirici, { backgroundColor: colors.borderColor }]} />}
               keyboardShouldPersistTaps="handled"

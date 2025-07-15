@@ -1,20 +1,18 @@
-// Koyu tema için ana renk
 const tintColorDark = '#FFFFFF';
-// Açık tema için ana renk (canlı bir mavi)
 const tintColorLight = '#007AFF';
 
 export default {
   light: {
-    text: '#052C4B', // Koyu Lacivert (Ana Metin)
-    background: '#EBF8FF', // Çok Açık, neredeyse beyaz bir gök mavisi (Arka Plan)
-    tint: tintColorLight, // Canlı, Parlak Mavi (Aktif Öğeler ve Vurgular)
-    icon: '#5A83A5', // Desatüre, sakin bir mavi (Pasif İkonlar ve ikincil metinler)
-    tabIconDefault: '#5A83A5',
+    text: '#052C4B',
+    background: '#F0F2F5', // Hafif kırık beyaz arkaplan
+    tint: tintColorLight,
+    icon: '#6B8A9E',
+    tabIconDefault: '#6B8A9E',
     tabIconSelected: tintColorLight,
     
-    // Kartlar beyaz kalarak mavi arka plandan şık bir şekilde ayrışacak
-    cardBackground: 'rgba(255, 255, 255, 0.7)', 
-    borderColor: 'rgba(0, 122, 255, 0.15)', // Çok hafif mavi tonlu kenarlık
+    // DEĞİŞİKLİK: Kart arka planı artık opak beyaz
+    cardBackground: '#FFFFFF', 
+    borderColor: '#E5E5EA',
   },
   dark: {
     text: '#FFFFFF',
@@ -24,7 +22,8 @@ export default {
     tabIconDefault: 'rgba(255, 255, 255, 0.6)',
     tabIconSelected: tintColorDark,
     
-    cardBackground: 'rgba(50, 50, 50, 0.7)',
+    // DEĞİŞİKLİK: Kart arka planı artık opak ve standart bir koyu gri
+    cardBackground: '#2C2C2E',
     borderColor: 'rgba(255, 255, 255, 0.2)',
   },
 };
