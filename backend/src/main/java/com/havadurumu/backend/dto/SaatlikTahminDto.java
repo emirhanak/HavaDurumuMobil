@@ -5,7 +5,7 @@ public class SaatlikTahminDto {
     private double sicaklik;
     private int durumKodu;
 
-    // Getters and Setters...
+    // Getters and Setters
     public String getSaat() { return saat; }
     public void setSaat(String saat) { this.saat = saat; }
     public double getSicaklik() { return sicaklik; }

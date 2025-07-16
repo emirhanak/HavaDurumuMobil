@@ -6,7 +6,7 @@ public class GunlukTahminDto {
     private double enYuksek;
     private int durumKodu;
 
-    // Getters and Setters...
+    // Getters and Setters
     public String getGun() { return gun; }
     public void setGun(String gun) { this.gun = gun; }
     public double getEnDusuk() { return enDusuk; }

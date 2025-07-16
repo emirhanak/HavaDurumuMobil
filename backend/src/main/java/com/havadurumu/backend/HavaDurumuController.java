@@ -1,6 +1,6 @@
 package com.havadurumu.backend;
 
-import com.havadurumu.backend.dto.HavaDurumuCevapDto; // <-- EKSİK OLAN IMPORT SATIRI EKLENDİ
+import com.havadurumu.backend.dto.HavaDurumuCevapDto; 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;

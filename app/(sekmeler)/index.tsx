@@ -23,18 +23,15 @@ export default function AnaHavaDurumuSekmesi() {
 
   useFocusEffect(
     useCallback(() => {
-      // Async fonksiyonu burada tanımlıyoruz
       const getKonumVeHavaDurumu = async () => {
         setIsLoading(true);
         setHataMesaji(null);
-
-        let { status } = await Location.requestForegroundPermissionsAsync();
-        if (status !== 'granted') {
-          setHataMesaji('Hava durumunu göstermek için konum izni gereklidir.');
-          setIsLoading(false);
-          return;
-        }
         try {
+          let { status } = await Location.requestForegroundPermissionsAsync();
+          if (status !== 'granted') {
+            throw new Error('Hava durumunu göstermek için konum izni gereklidir.');
+          }
+          
           let location = await Location.getCurrentPositionAsync({});
           const { latitude, longitude } = location.coords;
 
@@ -42,7 +39,6 @@ export default function AnaHavaDurumuSekmesi() {
           const sehirAdi = geocode[0]?.city || 'Konumum';
 
           const data = await fetchWeatherFromBackend(latitude, longitude);
-          
           if (!data || !data.anlikHavaDurumu) {
             throw new Error("API'den gelen veri formatı hatalı.");
           }
@@ -59,15 +55,15 @@ export default function AnaHavaDurumuSekmesi() {
           setWeatherData(data);
 
         } catch (error: any) {
-          setHataMesaji(error.message || 'Konum bilgisi alınamadı veya sunucuya ulaşılamadı.');
+          setHataMesaji(error.message || 'Bir hata oluştu.');
           console.error(error);
         } finally {
           setIsLoading(false);
         }
       };
-
-      // ve burada çağırıyoruz
+      
       getKonumVeHavaDurumu();
+      
     }, [])
   );
 
@@ -83,7 +79,7 @@ export default function AnaHavaDurumuSekmesi() {
     return (
       <View style={[styles.center, { backgroundColor: colors.background, padding: 20 }]}>
         <Text style={{ color: colors.text, textAlign: 'center', marginBottom: 20 }}>{hataMesaji}</Text>
-        {/* Buton tekrar deneme fonksiyonunu çağırabilir ancak focus efekti zaten yeniden tetikleyecektir. */}
+        {/* Yeniden deneme butonu, sekmeye tekrar tıklandığında focus efekti zaten yeniden çalışacağı için kaldırılabilir veya başka bir mantıkla eklenebilir. */}
       </View>
     );
   }

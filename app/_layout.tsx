@@ -7,7 +7,7 @@ export default function RootLayout() {
     <SettingsProvider>
       <SehirProvider>
         <Stack screenOptions={{ headerShown: false }}>
-          {/* Bu layout sadece sekme grubunu tanır, içindeki detayları bilmez. */}
+          {}
           <Stack.Screen name="(sekmeler)" />
           <Stack.Screen name="+not-found" />
         </Stack>

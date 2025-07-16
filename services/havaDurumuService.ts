@@ -1,6 +1,4 @@
-// Bu adres, geliştirme sırasında bilgisayarınızın ağdaki IP adresidir.
-// 'localhost' kullanamayız çünkü mobil uygulama localhost'u kendisi olarak görür.
-const JAVA_BACKEND_URL = 'http://192.168.1.46:8080/api'; 
+const JAVA_BACKEND_URL = 'http://192.168.1.195:8080/api'; 
 
 export const fetchWeatherFromBackend = async (lat: number, lon: number) => {
   try {
