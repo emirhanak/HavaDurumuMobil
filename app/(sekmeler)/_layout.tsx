@@ -1,4 +1,4 @@
-import { Tabs, router } from 'expo-router'; // <-- DÜZELTME: 'router' buraya import edildi
+import { Tabs, router } from 'expo-router';
 import { Cloud, Map, List, Settings } from 'lucide-react-native';
 import { useSettings } from '@/context/SettingsContext';
 import { useSehirler } from '@/context/SehirContext';
@@ -34,7 +34,7 @@ function ThemedTabs() {
           tabPress: (e) => {
             e.preventDefault();
             setMod('konum');
-            router.push('/'); // Artık 'router' tanınıyor
+            router.push('/');
           },
         }}
       />
@@ -59,14 +59,7 @@ function ThemedTabs() {
           tabBarIcon: ({ size, color }) => <Settings size={size} color={color} />,
         }}
       />
-      
-      {/* Bu satır, (sekmeler) içindeki 'havadurumu' klasörünün bir sekme olmasını engeller */}
-      <Tabs.Screen
-        name="havadurumu"
-        options={{
-          href: null,
-        }}
-      />
+      <Tabs.Screen name="havadurumu" options={{ href: null }} />
     </Tabs>
   );
 }

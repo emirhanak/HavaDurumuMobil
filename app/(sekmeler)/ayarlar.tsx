@@ -1,169 +1,98 @@
 import React from 'react';
-import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, ScrollView, useColorScheme } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, StatusBar } from 'react-native';
 import { useSettings } from '@/context/SettingsContext';
-import { Thermometer, Palette, Info, Sun, Moon, Smartphone } from 'lucide-react-native';
+import { Thermometer, Palette, Sun, Moon } from 'lucide-react-native';
 
 export default function AyarlarEkrani() {
-  const { unit, setUnit, theme, setTheme, colors } = useSettings();
-  const phoneTheme = useColorScheme();
-
-  // Dinamik stilleri component içinde oluşturuyoruz
-  const dynamicStyles = {
-    container: { backgroundColor: colors.background },
-    title: { color: colors.text },
-    sectionTitle: { color: colors.text },
-    subtitle: { color: colors.icon },
-    blur: {
-      backgroundColor: colors.cardBackground,
-      borderColor: colors.borderColor,
-    },
-    border: { borderBottomColor: colors.borderColor },
-    segmentButton: {
-      // Temel stil, aktif olmayınca
-    },
-    segmentText: {
-      color: colors.text,
-    },
-    segmentButtonActive: {
-      backgroundColor: colors.tint,
-    },
-    segmentTextActive: {
-      color: colors.background, // Aktifken arkaplan rengini alır (kontrast için)
-    },
-    infoText: { color: colors.icon },
-  };
+  const { theme, setTheme, unit, setUnit, colors } = useSettings();
 
   return (
-    <SafeAreaView style={[styles.container, dynamicStyles.container]}>
-      <ScrollView style={styles.content}>
-        <Text style={[styles.title, dynamicStyles.title]}>Ayarlar</Text>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+       <StatusBar barStyle={theme === 'dark' ? 'light-content' : 'dark-content'} />
+      <View style={styles.content}>
+        <Text style={[styles.title, { color: colors.text }]}>Ayarlar</Text>
         
-        <View style={styles.settingsContainer}>
-          <View style={[styles.settingsBlur, dynamicStyles.blur]}>
+        <View style={styles.card}>
             {/* Sıcaklık Birimi */}
-            <View style={[styles.settingItem, styles.settingItemBorder, dynamicStyles.border]}>
-              <View style={styles.settingItemLeft}>
+            <View style={[styles.optionRow, styles.borderBottom, { borderColor: colors.borderColor }]}>
+              <View style={styles.optionTextContainer}>
                 <Thermometer size={22} color={colors.icon} />
-                <Text style={[styles.settingTitle, dynamicStyles.sectionTitle]}>Sıcaklık Birimi</Text>
+                <Text style={[styles.optionTitle, { color: colors.text }]}>Sıcaklık Birimi</Text>
               </View>
-              <View style={styles.segmentedControl}>
+              <View style={[styles.segmentedControl, { borderColor: colors.borderColor }]}>
                 <TouchableOpacity 
-                  style={[styles.segmentButton, unit === 'C' && dynamicStyles.segmentButtonActive]}
+                  style={[styles.segmentButton, unit === 'C' && { backgroundColor: colors.tint }]}
                   onPress={() => setUnit('C')}>
-                  <Text style={[styles.segmentText, unit === 'C' ? dynamicStyles.segmentTextActive : dynamicStyles.segmentText]}>°C</Text>
+                  <Text style={[styles.segmentText, { color: colors.text }, unit === 'C' && { color: theme === 'light' ? '#fff' : '#000' }]}>°C</Text>
                 </TouchableOpacity>
                 <TouchableOpacity 
-                  style={[styles.segmentButton, unit === 'F' && dynamicStyles.segmentButtonActive]}
+                  style={[styles.segmentButton, unit === 'F' && { backgroundColor: colors.tint }]}
                   onPress={() => setUnit('F')}>
-                  <Text style={[styles.segmentText, unit === 'F' ? dynamicStyles.segmentTextActive : dynamicStyles.segmentText]}>°F</Text>
+                  <Text style={[styles.segmentText, { color: colors.text }, unit === 'F' && { color: theme === 'light' ? '#fff' : '#000' }]}>°F</Text>
                 </TouchableOpacity>
               </View>
             </View>
 
             {/* Tema */}
-            <View style={styles.settingItem}>
-              <View style={styles.settingItemLeft}>
+            <View style={styles.optionRow}>
+              <View style={styles.optionTextContainer}>
                 <Palette size={22} color={colors.icon} />
-                <Text style={[styles.settingTitle, dynamicStyles.sectionTitle]}>Tema</Text>
+                <Text style={[styles.optionTitle, { color: colors.text }]}>Tema</Text>
               </View>
-              <View style={styles.segmentedControl}>
+              <View style={[styles.segmentedControl, { borderColor: colors.borderColor }]}>
                  <TouchableOpacity 
-                    style={[styles.segmentButton, theme === 'light' && dynamicStyles.segmentButtonActive]}
+                    style={[styles.segmentButton, theme === 'light' && { backgroundColor: colors.tint }]}
                     onPress={() => setTheme('light')}>
-                    <Sun size={18} color={theme === 'light' ? dynamicStyles.segmentTextActive.color : colors.text} />
+                    <Sun size={18} color={theme === 'light' ? (colors.background === '#FFFFFF' ? '#000' : '#fff') : colors.icon} />
                   </TouchableOpacity>
                   <TouchableOpacity 
-                    style={[styles.segmentButton, theme === 'dark' && dynamicStyles.segmentButtonActive]}
+                    style={[styles.segmentButton, theme === 'dark' && { backgroundColor: colors.tint }]}
                     onPress={() => setTheme('dark')}>
-                    <Moon size={18} color={theme === 'dark' ? dynamicStyles.segmentTextActive.color : colors.text} />
-                  </TouchableOpacity>
-                  <TouchableOpacity 
-                    style={[styles.segmentButton, theme === 'automatic' && dynamicStyles.segmentButtonActive]}
-                    onPress={() => setTheme('automatic')}>
-                    <Smartphone size={18} color={theme === 'automatic' ? dynamicStyles.segmentTextActive.color : colors.text} />
+                    <Moon size={18} color={theme === 'dark' ? (colors.background === '#FFFFFF' ? '#000' : '#fff') : colors.icon} />
                   </TouchableOpacity>
               </View>
             </View>
-          </View>
         </View>
-      </ScrollView>
+      </View>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  backgroundGradient: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-  },
-  content: {
-    flex: 1,
-    paddingHorizontal: 20,
-    paddingTop: 20,
-  },
-  title: {
-    fontSize: 34,
-    fontWeight: '700',
-    marginBottom: 30,
-  },
-  settingsContainer: {
-    marginBottom: 30,
-  },
-  settingsBlur: {
-    borderRadius: 16,
-    overflow: 'hidden',
-    borderWidth: 1,
-  },
-  settingItem: {
+  container: { flex: 1 },
+  content: { paddingTop: 60, paddingHorizontal: 20 },
+  title: { fontSize: 34, fontWeight: '700', marginBottom: 30 },
+  card: { borderRadius: 12, overflow: 'hidden' },
+  optionRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
+    padding: 16,
   },
-  settingItemBorder: {
-    borderBottomWidth: 1,
-  },
-  settingItemLeft: {
+  optionTextContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    flex: 1,
+    gap: 16,
   },
-  settingIcon: {
-    marginRight: 16,
-  },
-  settingText: {
-    flex: 1,
-  },
-  settingTitle: {
+  optionTitle: {
     fontSize: 17,
-    fontWeight: '600',
-    marginBottom: 2,
+    fontWeight: '500',
   },
-  settingSubtitle: {
-    fontSize: 15,
+  borderBottom: {
+    borderBottomWidth: StyleSheet.hairlineWidth,
   },
   segmentedControl: {
     flexDirection: 'row',
     borderRadius: 8,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.3)'
   },
   segmentButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    alignItems: 'center',
-    justifyContent: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
   },
   segmentText: {
     fontSize: 16,
-    fontWeight: '600'
+    fontWeight: '600',
   },
 });

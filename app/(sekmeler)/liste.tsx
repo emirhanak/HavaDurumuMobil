@@ -1,14 +1,13 @@
 import React from 'react';
 import { StyleSheet, SafeAreaView, View, StatusBar } from 'react-native';
 import { useSettings } from '@/context/SettingsContext';
-import { useSehirler } from '@/context/SehirContext';
+import { useSehirler, Sehir } from '@/context/SehirContext'; // Sehir tipini de buradan import ediyoruz
 import SehirArama from '@/components/SehirArama';
 import SehirListesi from '@/components/SehirListesi';
 
 export default function ListeEkrani() {
   const { colors } = useSettings();
-  // Artık sadece bu üçüne ihtiyacımız var
-  const { sehirler, sehirEkle, sehirKaldir } = useSehirler();
+  const { sehirler, sehirEkle, sehirKaldir, setAktifSehir } = useSehirler();
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>

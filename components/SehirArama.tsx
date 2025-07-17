@@ -4,17 +4,9 @@ import { Search, Plus } from 'lucide-react-native';
 import { useSettings } from '@/context/SettingsContext';
 import SEHIR_DATABASE from '../mocks/mockSehirlerTR.json';
 import { fetchWeatherFromBackend } from '@/services/havaDurumuService';
+import { Sehir } from '@/context/SehirContext'; // DÜZELTME: Sehir tipini merkezi yerden import ediyoruz
 
-// DÜZELTME: Interface'i en düşük ve en yüksek sıcaklıkları içerecek şekilde güncelliyoruz
-interface Sehir {
-  id: string;
-  ad: string;
-  enlem: number;
-  boylam: number;
-  sicaklik: number;
-  enDusuk: number;
-  enYuksek: number;
-}
+// Buradaki yerel 'interface Sehir' tanımını siliyoruz.
 
 interface SehirAramaProps {
   onSehirEkle: (sehir: Sehir) => void;
@@ -45,6 +37,7 @@ interface SehirAramaProps {
 ];
 */
 
+
 export default function SehirArama({ onSehirEkle, mevcutSehirler }: SehirAramaProps) {
   const { colors, theme } = useSettings();
   const [aramaMetni, setAramaMetni] = useState('');
@@ -57,9 +50,7 @@ export default function SehirArama({ onSehirEkle, mevcutSehirler }: SehirAramaPr
   const sehirEkleHandler = async (sehirVerisi: Omit<Sehir, 'id' | 'sicaklik' | 'enDusuk' | 'enYuksek'>) => {
     try {
       const anlikVeri = await fetchWeatherFromBackend(sehirVerisi.enlem, sehirVerisi.boylam);
-      if (!anlikVeri || !anlikVeri.anlikHavaDurumu) {
-        throw new Error('API yanıtı beklenen formatta değil.');
-      }
+      if (!anlikVeri || !anlikVeri.anlikHavaDurumu) { throw new Error('API yanıtı beklenen formatta değil.'); }
       
       const anlikSicaklik = Math.round(anlikVeri.anlikHavaDurumu.sicaklik);
       const enDusukSicaklik = Math.round(anlikVeri.anlikHavaDurumu.enDusuk);
@@ -76,13 +67,11 @@ export default function SehirArama({ onSehirEkle, mevcutSehirler }: SehirAramaPr
       onSehirEkle(yeniSehir);
       setAramaMetni('');
       Keyboard.dismiss();
-
     } catch (error) {
-      console.error("Şehir eklenirken sıcaklık alınamadı:", error);
       Alert.alert('Hata', 'Şehir eklenemedi. Lütfen internet bağlantınızı ve backend sunucunuzun çalıştığını kontrol edin.');
     }
   };
-  
+
   const cardStyle = theme === 'light' ? styles.cardShadow : {};
 
   const oneriyiRenderla = ({ item }: { item: Omit<Sehir, 'id' | 'sicaklik' | 'enDusuk' | 'enYuksek'> }) => (
@@ -106,8 +95,6 @@ export default function SehirArama({ onSehirEkle, mevcutSehirler }: SehirAramaPr
             placeholderTextColor={colors.icon}
             value={aramaMetni}
             onChangeText={setAramaMetni}
-            autoCapitalize="words"
-            autoCorrect={false}
           />
         </View>
       </View>
@@ -139,5 +126,5 @@ const styles = StyleSheet.create({
   onerilerKutusu: { borderRadius: 12, borderWidth: 1, maxHeight: 220 },
   oneriItem: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12 },
   oneriMetni: { fontSize: 16, fontWeight: '400' },
-  ayirici: { height: 1 }
+  ayirici: { height: StyleSheet.hairlineWidth }
 });

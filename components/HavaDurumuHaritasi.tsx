@@ -130,12 +130,8 @@ export default function HavaDurumuHaritasi({ sehirler }: HavaDurumuHaritasiProps
         <TouchableOpacity style={styles.controlButton} onPress={KonumumaGit}>
           <Send size={20} color="white" style={{ transform: [{ rotate: '-45deg' }] }}/>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.controlButton}>
-          <List size={20} color="white" />
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.controlButton} onPress={() => setMenuGorunur(true)}>
-          <Layers size={20} color="white" />
-        </TouchableOpacity>
+      
+      
       </View>
       {aktifKatman && <MapLegend aktifKatman={aktifKatman} />}
       <LayerMenu
