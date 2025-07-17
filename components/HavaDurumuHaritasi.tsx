@@ -37,7 +37,7 @@ export const haritaKatmanlari: HaritaKatmani[] = [
     { key: 'wind_speed', title: 'Rüzgar', iconName: 'Wind' },
 ];
 
-const JAVA_BACKEND_URL = 'http://192.168.1.46:8080/api'; // KENDİ IP ADRESİNİZİ GİRİN
+const JAVA_BACKEND_URL = 'http://192.168.1.195:8080/api';
 
 export default function HavaDurumuHaritasi({ sehirler }: HavaDurumuHaritasiProps) {
   const [selectedCityId, setSelectedCityId] = useState<string | null>(null);
