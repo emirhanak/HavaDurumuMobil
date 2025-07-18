@@ -1,10 +1,10 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, Dimensions, TouchableOpacity, Modal, PanResponder, Animated as RNAnimated } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Dimensions, TouchableOpacity, Modal, PanResponder, Animated, Easing } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Cloud, Thermometer, Droplets, Wind, Eye, Sun, CloudRain } from 'lucide-react-native';
 import Svg, { G, Circle, Text as SvgText, Line } from 'react-native-svg';
 import * as Haptics from 'expo-haptics';
-import Animated, { useSharedValue, useAnimatedProps, useAnimatedStyle, withSpring, runOnJS } from 'react-native-reanimated';
+// import Animated, { useSharedValue, useAnimatedProps, useAnimatedStyle, withSpring, runOnJS } from 'react-native-reanimated';
 import { useSettings } from '@/context/SettingsContext';
 import dayjs from 'dayjs';
 
@@ -26,6 +26,7 @@ interface AnlikHavaDurumu {
   ruzgarHizi: number;
   gorusMesafesi: number;
   basinc: number;
+  durumKodu: number; // eklendi
 }
 interface SaatlikTahmin { saat: string; sicaklik: number; durumKodu: number; }
 interface GunlukTahmin { gun: string; enDusuk: number; enYuksek: number; durumKodu: number; }
@@ -67,7 +68,7 @@ export default function HavaDurumuDetay({ sehir, weatherData }: HavaDurumuDetayP
   // --- Çark state'leri ---
   const [modalVisible, setModalVisible] = React.useState(false);
   const [rotation, setRotation] = React.useState(0);
-  const rotationValue = React.useRef(new RNAnimated.Value(0)).current;
+  const rotationValue = React.useRef(new Animated.Value(0)).current;
   const rotationRef = React.useRef(0);
   const lastRotation = React.useRef(0);
   const currentRotationRef = React.useRef(0);
@@ -105,7 +106,7 @@ export default function HavaDurumuDetay({ sehir, weatherData }: HavaDurumuDetayP
   const secili = saatlikVeri[selectedHour];
   // Seçili saat animasyonu için
   const [infoScale, setInfoScale] = React.useState(1);
-  const infoScaleValue = React.useRef(new RNAnimated.Value(1)).current;
+  const infoScaleValue = React.useRef(new Animated.Value(1)).current;
   // Son seçili saat index'ini takip et
   const lastSelectedHour = React.useRef(selectedHour);
 
@@ -140,9 +141,9 @@ export default function HavaDurumuDetay({ sehir, weatherData }: HavaDurumuDetayP
           setSelectedHour(idx);
           lastSelectedHour.current = idx;
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-          RNAnimated.sequence([
-            RNAnimated.timing(infoScaleValue, { toValue: 1.08, duration: 80, useNativeDriver: true }),
-            RNAnimated.timing(infoScaleValue, { toValue: 1, duration: 80, useNativeDriver: true })
+          Animated.sequence([
+            Animated.timing(infoScaleValue, { toValue: 1.08, duration: 80, useNativeDriver: true }),
+            Animated.timing(infoScaleValue, { toValue: 1, duration: 80, useNativeDriver: true })
           ]).start();
         }
         currentRotationRef.current = newRotation;
@@ -159,11 +160,11 @@ export default function HavaDurumuDetay({ sehir, weatherData }: HavaDurumuDetayP
         lastSelectedHour.current = idx;
         // LOG: Snap bırakınca
         console.log('Snap:', { lastRot, idx, saat: saatlikVeri[idx]?.saat, saatAci: saatAcilari[idx], snapped });
-        RNAnimated.spring(rotationValue, { toValue: snapped, useNativeDriver: true, damping: 10, stiffness: 120, mass: 0.5 }).start();
+        Animated.spring(rotationValue, { toValue: snapped, useNativeDriver: true, damping: 10, stiffness: 120, mass: 0.5 }).start();
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        RNAnimated.sequence([
-          RNAnimated.timing(infoScaleValue, { toValue: 1.08, duration: 80, useNativeDriver: true }),
-          RNAnimated.timing(infoScaleValue, { toValue: 1, duration: 80, useNativeDriver: true })
+        Animated.sequence([
+          Animated.timing(infoScaleValue, { toValue: 1.08, duration: 80, useNativeDriver: true }),
+          Animated.timing(infoScaleValue, { toValue: 1, duration: 80, useNativeDriver: true })
         ]).start();
       },
     })
@@ -227,12 +228,52 @@ export default function HavaDurumuDetay({ sehir, weatherData }: HavaDurumuDetayP
 
   const cardStyle = theme === 'light' ? styles.cardShadow : {};
 
+  // Güneş animasyonu için state ve efekt
+  const sunRotate = React.useRef(new Animated.Value(0)).current;
+  React.useEffect(() => {
+    if (weatherData.anlikHavaDurumu.durumKodu === 1000 || weatherData.anlikHavaDurumu.durumKodu === 1100) {
+      Animated.loop(
+        Animated.timing(sunRotate, {
+          toValue: 1,
+          duration: 6000,
+          easing: Easing.linear,
+          useNativeDriver: true,
+        })
+      ).start();
+    } else {
+      sunRotate.stopAnimation();
+      sunRotate.setValue(0);
+    }
+  }, [weatherData.anlikHavaDurumu.durumKodu]);
+
+  const sunSpin = sunRotate.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0deg', '360deg'],
+  });
+
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <LinearGradient
         colors={theme === 'dark' ? ['#1e3c72', '#2a5298', '#4c6ef5'] : ['#87CEEB', '#B0E0E6']}
         style={styles.backgroundGradient}
       />
+      {/* Güneşli havada sol üstte animasyonlu güneş */}
+      {(weatherData.anlikHavaDurumu.durumKodu === 1000 || weatherData.anlikHavaDurumu.durumKodu === 1100) && (
+        <Animated.View style={{
+          position: 'absolute',
+          top: 32,
+          left: 24,
+          zIndex: 20,
+          shadowColor: '#FFD700',
+          shadowOffset: { width: 0, height: 0 },
+          shadowOpacity: 0.7,
+          shadowRadius: 24,
+          elevation: 12,
+          transform: [{ rotate: sunSpin }],
+        }}>
+          <Sun size={54} color={'#FFD700'} />
+        </Animated.View>
+      )}
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
         <View style={styles.anaHavaBolumu}>
           <Text style={[styles.sehirAdi, { color: colors.text }]}>{sehir.ad}</Text>
@@ -244,20 +285,26 @@ export default function HavaDurumuDetay({ sehir, weatherData }: HavaDurumuDetayP
         </View>
 
         {/* Saatlik Tahmin */}
-        <TouchableOpacity activeOpacity={0.8} onPress={() => setModalVisible(true)}>
-          <View style={[styles.card, cardStyle, { backgroundColor: colors.cardBackground, borderColor: colors.borderColor }]}>
-            <Text style={[styles.cardTitle, { color: colors.icon }]}>SAATLİK TAHMİN</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.hourlyScrollContent}>
-              {saatlikVeri.map((item, index) => (
-                <View key={index} style={styles.hourlyItem}>
-                  <Text style={[styles.hourlyTime, { color: colors.icon }]}>{index === 0 ? 'Şimdi' : item.saat}</Text>
-                  <View style={styles.hourlyIcon}>{renderWeatherIcon(item.durumKodu, 24)}</View>
-                  <Text style={[styles.hourlyTemp, { color: colors.text }]}>{convertTemperature(item.sicaklik)}°</Text>
-                </View>
-              ))}
-            </ScrollView>
-          </View>
-        </TouchableOpacity>
+        <View style={[styles.card, cardStyle, { backgroundColor: colors.cardBackground, borderColor: colors.borderColor }]}>
+          <Text style={[styles.cardTitle, { color: colors.icon }]}>SAATLİK TAHMİN</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.hourlyScrollContent}>
+            {saatlikVeri.map((item, index) => (
+              <TouchableOpacity
+                key={index}
+                style={styles.hourlyItem}
+                onPress={() => {
+                  setSelectedHour(index);
+                  setModalVisible(true);
+                }}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.hourlyTime, { color: colors.icon }]}>{index === 0 ? 'Şimdi' : item.saat}</Text>
+                <View style={styles.hourlyIcon}>{renderWeatherIcon(item.durumKodu, 24)}</View>
+                <Text style={[styles.hourlyTemp, { color: colors.text }]}>{convertTemperature(item.sicaklik)}°</Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
         {/* Modal ve Çark */}
         <Modal visible={modalVisible} animationType="slide" transparent onRequestClose={() => setModalVisible(false)}>
           <View style={styles.modalOverlay}>
@@ -291,14 +338,14 @@ export default function HavaDurumuDetay({ sehir, weatherData }: HavaDurumuDetayP
                 </Svg>
               </View>
               {/* Seçili saat bilgisi */}
-              <RNAnimated.View style={{ alignItems: 'center', marginBottom: 8, transform: [{ scale: infoScaleValue }] }}>
+              <Animated.View style={{ alignItems: 'center', marginBottom: 8, transform: [{ scale: infoScaleValue }] }}>
                 <Text style={{ color: colors.text, fontSize: 22, fontWeight: 'bold', marginBottom: 2 }}>{secili?.saat}</Text>
                 <Text style={{ color: colors.text, fontSize: 28, fontWeight: 'bold', marginBottom: 2 }}>{convertTemperature(secili?.sicaklik)}°</Text>
                 <Text style={{ color: colors.text, fontSize: 17, marginBottom: 2 }}>
-                  {secili?.durumKodu >= 8000 ? 'Yağışlı' : secili?.durumKodu >= 4000 ? 'Sağanak' : secili?.durumKodu === 1000 || secili?.durumKodu === 1100 ? 'Güneşli' : 'Bulutlu'}
+                  {secili?.durumKodu >= 8000 ? 'Yağışlı' : secili?.durumKodu >= 4000 ? 'Sağanak' : secili?.durumKodu === 1000 || secili?.durumKodu === 1100 ? 'Güneşli' : 'Parçalı Bulutlu'}
                 </Text>
                 <Text style={{ fontSize: 36, marginTop: 2 }}>{secili?.durumKodu >= 8000 ? '🌧️' : secili?.durumKodu >= 4000 ? '🌦️' : secili?.durumKodu === 1000 || secili?.durumKodu === 1100 ? '☀️' : '☁️'}</Text>
-              </RNAnimated.View>
+              </Animated.View>
               <TouchableOpacity onPress={() => setModalVisible(false)} style={styles.closeButton}>
                 <Text style={{ color: colors.text, fontSize: 16 }}>Kapat</Text>
               </TouchableOpacity>
