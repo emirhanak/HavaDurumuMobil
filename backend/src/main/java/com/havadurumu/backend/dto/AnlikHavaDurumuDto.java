@@ -10,6 +10,7 @@ public class AnlikHavaDurumuDto {
     private double ruzgarHizi;
     private double gorusMesafesi;
     private double basinc;
+    private int durumKodu; // EKLENDİ
 
     // Tüm alanlar için Getters ve Setters
     public double getSicaklik() { return sicaklik; }
@@ -30,4 +31,6 @@ public class AnlikHavaDurumuDto {
     public void setGorusMesafesi(double gorusMesafesi) { this.gorusMesafesi = gorusMesafesi; }
     public double getBasinc() { return basinc; }
     public void setBasinc(double basinc) { this.basinc = basinc; }
+    public int getDurumKodu() { return durumKodu; }
+    public void setDurumKodu(int durumKodu) { this.durumKodu = durumKodu; }
 }

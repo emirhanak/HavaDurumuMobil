@@ -7,6 +7,8 @@ import * as Haptics from 'expo-haptics';
 // import Animated, { useSharedValue, useAnimatedProps, useAnimatedStyle, withSpring, runOnJS } from 'react-native-reanimated';
 import { useSettings } from '@/context/SettingsContext';
 import dayjs from 'dayjs';
+import WeatherAnimation from './WeatherAnimation';
+import AnimatedCokBulutlu from './AnimatedCokBulutlu';
 
 // --- Interface Tanımlamaları ---
 interface Sehir {
@@ -257,23 +259,10 @@ export default function HavaDurumuDetay({ sehir, weatherData }: HavaDurumuDetayP
         colors={theme === 'dark' ? ['#1e3c72', '#2a5298', '#4c6ef5'] : ['#87CEEB', '#B0E0E6']}
         style={styles.backgroundGradient}
       />
-      {/* Güneşli havada sol üstte animasyonlu güneş */}
-      {(weatherData.anlikHavaDurumu.durumKodu === 1000 || weatherData.anlikHavaDurumu.durumKodu === 1100) && (
-        <Animated.View style={{
-          position: 'absolute',
-          top: 32,
-          left: 24,
-          zIndex: 20,
-          shadowColor: '#FFD700',
-          shadowOffset: { width: 0, height: 0 },
-          shadowOpacity: 0.7,
-          shadowRadius: 24,
-          elevation: 12,
-          transform: [{ rotate: sunSpin }],
-        }}>
-          <Sun size={54} color={'#FFD700'} />
-        </Animated.View>
-      )}
+      {/* Sadece sol üstte absolute animasyon */}
+      <View style={{ position: 'absolute', top: 32, left: 16, zIndex: 20, height: 120, width: 120, justifyContent: 'flex-start', alignItems: 'center' }}>
+        <WeatherAnimation code={weatherData.anlikHavaDurumu.durumKodu} durum={weatherData.anlikHavaDurumu.durum} />
+      </View>
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
         <View style={styles.anaHavaBolumu}>
           <Text style={[styles.sehirAdi, { color: colors.text }]}>{sehir.ad}</Text>
@@ -305,47 +294,10 @@ export default function HavaDurumuDetay({ sehir, weatherData }: HavaDurumuDetayP
             ))}
           </ScrollView>
         </View>
-        {/* Modal ve Çark */}
+        {/* Modal - İçerik boş, sadece kapat butonu var */}
         <Modal visible={modalVisible} animationType="slide" transparent onRequestClose={() => setModalVisible(false)}>
           <View style={styles.modalOverlay}>
             <View style={styles.modalContent}>
-              <Text style={{ color: colors.text, fontSize: 18, marginBottom: 12 }}>Saatlik Tahmin Çarkı</Text>
-              <View {...panResponder.panHandlers} style={{ marginBottom: 12 }} hitSlop={{top: 60, bottom: 60, left: 60, right: 60}}>
-                <Svg width={260} height={260} viewBox="0 0 260 260">
-                  <G rotation={rotation} origin="130,130">
-                    {saatlikVeri.map((item, i) => {
-                      const angle = i * slice - 90;
-                      const rad = (angle * Math.PI) / 180;
-                      const r1 = 50;
-                      const r2 = 110;
-                      const x1 = 130 + r1 * Math.cos(rad);
-                      const y1 = 130 + r1 * Math.sin(rad);
-                      const x2 = 130 + r2 * Math.cos(rad);
-                      const y2 = 130 + r2 * Math.sin(rad);
-                      const isSelected = i === selectedHour;
-                      return (
-                        <G key={i}>
-                          <Circle cx={x2} cy={y2} r={isSelected ? 20 : 12} fill={isSelected ? colors.tint : colors.cardBackground} stroke={isSelected ? colors.tint : colors.borderColor} strokeWidth={isSelected ? 3 : 1} />
-                          <SvgText x={x2} y={y2 + (isSelected ? 6 : 4)} fontSize={isSelected ? 15 : 11} fontWeight={isSelected ? 'bold' : 'normal'} fill={isSelected ? colors.text : colors.icon} textAnchor="middle">
-                            {item.saat}
-                          </SvgText>
-                          <Line x1={x1} y1={y1} x2={x2} y2={y2} stroke={isSelected ? colors.tint : colors.icon + '55'} strokeWidth={isSelected ? 3 : 1} />
-                        </G>
-                      );
-                    })}
-                  </G>
-                  <Circle cx={130} cy={130} r={6} fill={colors.tint} />
-                </Svg>
-              </View>
-              {/* Seçili saat bilgisi */}
-              <Animated.View style={{ alignItems: 'center', marginBottom: 8, transform: [{ scale: infoScaleValue }] }}>
-                <Text style={{ color: colors.text, fontSize: 22, fontWeight: 'bold', marginBottom: 2 }}>{secili?.saat}</Text>
-                <Text style={{ color: colors.text, fontSize: 28, fontWeight: 'bold', marginBottom: 2 }}>{convertTemperature(secili?.sicaklik)}°</Text>
-                <Text style={{ color: colors.text, fontSize: 17, marginBottom: 2 }}>
-                  {secili?.durumKodu >= 8000 ? 'Yağışlı' : secili?.durumKodu >= 4000 ? 'Sağanak' : secili?.durumKodu === 1000 || secili?.durumKodu === 1100 ? 'Güneşli' : 'Parçalı Bulutlu'}
-                </Text>
-                <Text style={{ fontSize: 36, marginTop: 2 }}>{secili?.durumKodu >= 8000 ? '🌧️' : secili?.durumKodu >= 4000 ? '🌦️' : secili?.durumKodu === 1000 || secili?.durumKodu === 1100 ? '☀️' : '☁️'}</Text>
-              </Animated.View>
               <TouchableOpacity onPress={() => setModalVisible(false)} style={styles.closeButton}>
                 <Text style={{ color: colors.text, fontSize: 16 }}>Kapat</Text>
               </TouchableOpacity>
@@ -401,6 +353,7 @@ const styles = StyleSheet.create({
   scrollView: { flex: 1 },
   scrollContent: { paddingBottom: 100, paddingTop: 80 },
   anaHavaBolumu: { alignItems: 'center', paddingHorizontal: 20, marginBottom: 40 },
+  anaHavaBolumuRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, marginBottom: 40 },
   sehirAdi: { fontSize: 34, fontWeight: '300' },
   anlikSicaklik: { fontSize: 96, fontWeight: '200' },
   havaDurumu: { fontSize: 20, fontWeight: '400', marginBottom: 8 },

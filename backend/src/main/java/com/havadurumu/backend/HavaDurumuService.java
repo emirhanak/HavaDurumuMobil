@@ -43,6 +43,7 @@ public class HavaDurumuService {
 
         try {
             String jsonResponse = restTemplate.getForObject(fullUrl, String.class);
+            System.out.println("DEBUG: Tomorrow.io JSON = " + jsonResponse); // JSON'u logla
             ObjectMapper objectMapper = new ObjectMapper();
             JsonNode rootNode = objectMapper.readTree(jsonResponse);
 
@@ -62,6 +63,14 @@ public class HavaDurumuService {
             anlikDto.setRuzgarHizi(anlikVeriNode.path("windSpeed").asDouble());
             anlikDto.setGorusMesafesi(anlikVeriNode.path("visibility").asDouble());
             anlikDto.setBasinc(anlikVeriNode.path("pressureSurfaceLevel").asDouble());
+
+            int kod = -1;
+            if (anlikVeriNode.has("weatherCode")) {
+                kod = anlikVeriNode.path("weatherCode").asInt();
+            } else {
+                System.err.println("HATA: weatherCode alanı bulunamadı! JSON: " + anlikVeriNode.toString());
+            }
+            anlikDto.setDurumKodu(kod);
 
             List<SaatlikTahminDto> saatlikListe = new ArrayList<>();
             for (int i = 0; i < 24 && i < hourlyTimeline.size(); i++) {
@@ -105,8 +114,8 @@ public class HavaDurumuService {
         return switch (code) {
             case 1000 -> "Açık";
             case 1100 -> "Genellikle Açık";
-            case 1101 -> "Parçalı Bulutlu";
-            case 1001 -> "Bulutlu";
+            case 1101, 1104 -> "Parçalı Bulutlu";
+            case 1001, 1102, 1103 -> "Çok Bulutlu";
             case 2000, 2100 -> "Sisli";
             case 4001 -> "Çisenti";
             case 4000, 4200 -> "Hafif Yağmurlu";
