@@ -1,16 +1,14 @@
+import { LineChart } from "react-native-chart-kit"; // ✅ Zaten eklemiştin, harika!
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, Dimensions, TouchableOpacity, Modal, PanResponder, Animated, Easing } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Dimensions, TouchableOpacity, Modal, PanResponder, Animated, Easing, Pressable } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Cloud, Thermometer, Droplets, Wind, Eye, Sun, CloudRain } from 'lucide-react-native';
-import Svg, { G, Circle, Text as SvgText, Line } from 'react-native-svg';
 import * as Haptics from 'expo-haptics';
-// import Animated, { useSharedValue, useAnimatedProps, useAnimatedStyle, withSpring, runOnJS } from 'react-native-reanimated';
 import { useSettings } from '@/context/SettingsContext';
 import dayjs from 'dayjs';
 import WeatherAnimation from './WeatherAnimation';
-import AnimatedCokBulutlu from './AnimatedCokBulutlu';
 
-// --- Interface Tanımlamaları ---
+// --- Interface Tanımlamaları (Değişiklik yok) ---
 interface Sehir {
   id: string;
   ad: string;
@@ -28,7 +26,7 @@ interface AnlikHavaDurumu {
   ruzgarHizi: number;
   gorusMesafesi: number;
   basinc: number;
-  durumKodu: number; // eklendi
+  durumKodu: number;
 }
 interface SaatlikTahmin { saat: string; sicaklik: number; durumKodu: number; }
 interface GunlukTahmin { gun: string; enDusuk: number; enYuksek: number; durumKodu: number; }
@@ -46,148 +44,14 @@ const { width } = Dimensions.get('window');
 
 export default function HavaDurumuDetay({ sehir, weatherData }: HavaDurumuDetayProps) {
   const { unit, colors, theme } = useSettings();
-  if (!weatherData || !sehir || !weatherData.anlikHavaDurumu) return null;
-  const saatlikVeri = weatherData.saatlikTahmin || [];
-
-  // --- Şu anki saate en yakın index'i bulma fonksiyonu ---
-  function getClosestHourIndex(): number {
-    const now = dayjs();
-    let minDiff = 9999;
-    let minIdx = 0;
-    for (let i = 0; i < saatlikVeri.length; i++) {
-      // saatlikVeri[i].saat formatı 'HH:mm' veya 'HH' olabilir
-      const hourStr = saatlikVeri[i].saat.length === 2 ? saatlikVeri[i].saat + ':00' : saatlikVeri[i].saat;
-      const tahminTime = dayjs(now.format('YYYY-MM-DD') + 'T' + hourStr);
-      let diff = Math.abs(now.diff(tahminTime, 'minute'));
-      if (diff < minDiff) {
-        minDiff = diff;
-        minIdx = i;
-      }
-    }
-    return minIdx;
-  }
-
-  // --- Çark state'leri ---
   const [modalVisible, setModalVisible] = React.useState(false);
-  const [rotation, setRotation] = React.useState(0);
-  const rotationValue = React.useRef(new Animated.Value(0)).current;
-  const rotationRef = React.useRef(0);
-  const lastRotation = React.useRef(0);
-  const currentRotationRef = React.useRef(0);
-  const rotationAtPanStart = React.useRef(0);
-  const touchAngleAtPanStart = React.useRef(0);
-  // Açısal farkı -180 ile +180 arasında normalize eden fonksiyon
-  function angleDiff(a: number, b: number) {
-    let diff = (a - b + 180) % 360 - 180;
-    return diff < -180 ? diff + 360 : diff;
-  }
-  // İki açı arasındaki farkı -180 ile +180 arasında normalize eden fonksiyon
-  function normalizeDeltaAngle(a: number, b: number) {
-    let delta = a - b;
-    while (delta > 180) delta -= 360;
-    while (delta < -180) delta += 360;
-    return delta;
-  }
-  // Saat açılarının hesaplanması ve seçili saat
-  const slice = 360 / saatlikVeri.length;
-  const saatAcilari = saatlikVeri.map((_, i) => i * slice - 90);
-  function getClosestIndex(rot: number) {
-    let minDiff = 9999;
-    let minIdx = 0;
-    for (let i = 0; i < saatAcilari.length; i++) {
-      let diff = Math.abs(angleDiff(rot % 360, saatAcilari[i] % 360));
-      if (diff < minDiff) {
-        minDiff = diff;
-        minIdx = i;
-      }
-    }
-    return minIdx;
-  }
-  // --- Seçili saat state'i ---
-  const [selectedHour, setSelectedHour] = React.useState(() => getClosestIndex(-rotation));
-  const secili = saatlikVeri[selectedHour];
-  // Seçili saat animasyonu için
-  const [infoScale, setInfoScale] = React.useState(1);
-  const infoScaleValue = React.useRef(new Animated.Value(1)).current;
-  // Son seçili saat index'ini takip et
-  const lastSelectedHour = React.useRef(selectedHour);
+  const [selectedHourIndex, setSelectedHourIndex] = React.useState(0);
 
-  // Pan gesture: çarkı serbestçe döndür, bırakınca snaple
-  const panResponder = React.useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: () => true,
-      onPanResponderGrant: (evt, gestureState) => {
-        const { x0, y0 } = gestureState;
-        const centerX = 130;
-        const centerY = 130;
-        const touchAngle = Math.atan2(y0 - centerY, x0 - centerX) * 180 / Math.PI;
-        rotationAtPanStart.current = rotationRef.current;
-        touchAngleAtPanStart.current = touchAngle;
-        // LOG: Pan start
-        console.log('PanStart:', { rotationAtPanStart: rotationAtPanStart.current, touchAngleAtPanStart: touchAngle });
-      },
-      onPanResponderMove: (evt, gestureState) => {
-        const { moveX, moveY } = gestureState;
-        const centerX = 130;
-        const centerY = 130;
-        const currentTouchAngle = Math.atan2(moveY - centerY, moveX - centerX) * 180 / Math.PI;
-        const gain = 2.5;
-        let delta = normalizeDeltaAngle(currentTouchAngle, touchAngleAtPanStart.current);
-        let newRotation = rotationAtPanStart.current + gain * delta;
-        setRotation(newRotation);
-        rotationValue.setValue(newRotation);
-        // Pan sırasında seçili saat anlık güncellensin
-        const idx = getClosestIndex(-newRotation);
-        if (idx !== lastSelectedHour.current) {
-          setSelectedHour(idx);
-          lastSelectedHour.current = idx;
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-          Animated.sequence([
-            Animated.timing(infoScaleValue, { toValue: 1.08, duration: 80, useNativeDriver: true }),
-            Animated.timing(infoScaleValue, { toValue: 1, duration: 80, useNativeDriver: true })
-          ]).start();
-        }
-        currentRotationRef.current = newRotation;
-        // LOG: Pan move
-        console.log('PanMove:', { newRotation, rotationAtPanStart: rotationAtPanStart.current, currentTouchAngle, touchAngleAtPanStart: touchAngleAtPanStart.current, delta, idx, saat: saatlikVeri[idx]?.saat });
-      },
-      onPanResponderRelease: () => {
-        const lastRot = currentRotationRef.current;
-        const idx = getClosestIndex(-lastRot);
-        const snapped = -saatAcilari[idx];
-        setRotation(snapped);
-        rotationValue.setValue(snapped);
-        setSelectedHour(idx);
-        lastSelectedHour.current = idx;
-        // LOG: Snap bırakınca
-        console.log('Snap:', { lastRot, idx, saat: saatlikVeri[idx]?.saat, saatAci: saatAcilari[idx], snapped });
-        Animated.spring(rotationValue, { toValue: snapped, useNativeDriver: true, damping: 10, stiffness: 120, mass: 0.5 }).start();
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        Animated.sequence([
-          Animated.timing(infoScaleValue, { toValue: 1.08, duration: 80, useNativeDriver: true }),
-          Animated.timing(infoScaleValue, { toValue: 1, duration: 80, useNativeDriver: true })
-        ]).start();
-      },
-    })
-  ).current;
+  if (!weatherData || !sehir || !weatherData.anlikHavaDurumu) return null;
 
-  // Modal açıldığında şu anki saate en yakın index'e snaple
-  React.useEffect(() => {
-    if (modalVisible && saatlikVeri.length > 0) {
-      const idx = getClosestHourIndex();
-      const snapped = -saatAcilari[idx];
-      setRotation(snapped);
-      rotationValue.setValue(snapped);
-      setSelectedHour(idx);
-    }
-  }, [modalVisible, saatlikVeri.length]);
-
-  // rotation güncellendiğinde rotationRef de güncellensin
-  React.useEffect(() => {
-    rotationValue.setValue(rotation);
-    rotationRef.current = rotation;
-  }, [rotation]);
+  const anlikVeri = weatherData.anlikHavaDurumu;
+  const saatlikVeri = weatherData.saatlikTahmin || [];
+  const gunlukVeri = weatherData.gunlukTahmin || [];
 
   const convertTemperature = (celsius: number) => {
     if (celsius === null || celsius === undefined) return '--';
@@ -201,25 +65,11 @@ export default function HavaDurumuDetay({ sehir, weatherData }: HavaDurumuDetayP
     if (code === 1000 || code === 1100) return <Sun size={size} color={colors.text} />;
     return <Cloud size={size} color={colors.text} />;
   };
-
-  // ✅ GÜN KISALTMALARINI BURADA TANIMLIYORUZ
+  
   const gunKisaltma = (gun: string) => {
-    const map: Record<string, string> = {
-      'Pazartesi': 'Pts',
-      'Salı': 'Sal',
-      'Çarşamba': 'Çrş',
-      'Perşembe': 'Prş',
-      'Cuma': 'Cum',
-      'Cumartesi': 'Cts',
-      'Pazar': 'Paz',
-    };
+    const map: Record<string, string> = { 'Pazartesi': 'Pts', 'Salı': 'Sal', 'Çarşamba': 'Çrş', 'Perşembe': 'Prş', 'Cuma': 'Cum', 'Cumartesi': 'Cts', 'Pazar': 'Paz' };
     return map[gun] || gun.substring(0, 3);
   };
-
-  if (!weatherData || !sehir || !weatherData.anlikHavaDurumu) return null;
-
-  const anlikVeri = weatherData.anlikHavaDurumu;
-  const gunlukVeri = weatherData.gunlukTahmin || [];
 
   const detaylar = [
     { title: 'HİSSEDİLEN', value: `${convertTemperature(anlikVeri.hissedilen)}°`, icon: <Thermometer size={20} color={colors.icon} /> },
@@ -230,28 +80,48 @@ export default function HavaDurumuDetay({ sehir, weatherData }: HavaDurumuDetayP
 
   const cardStyle = theme === 'light' ? styles.cardShadow : {};
 
-  // Güneş animasyonu için state ve efekt
-  const sunRotate = React.useRef(new Animated.Value(0)).current;
-  React.useEffect(() => {
-    if (weatherData.anlikHavaDurumu.durumKodu === 1000 || weatherData.anlikHavaDurumu.durumKodu === 1100) {
-      Animated.loop(
-        Animated.timing(sunRotate, {
-          toValue: 1,
-          duration: 6000,
-          easing: Easing.linear,
-          useNativeDriver: true,
-        })
-      ).start();
-    } else {
-      sunRotate.stopAnimation();
-      sunRotate.setValue(0);
+  // ✅ YENİ EKLENEN: GRAFİK İÇİN VERİ HAZIRLAMA
+  // Tıklanan saatten itibaren sonraki 8 saatin verisini alıp grafik için formatlıyoruz.
+  const getChartData = () => {
+    if (saatlikVeri.length === 0) {
+      return {
+        labels: [],
+        datasets: [{ data: [] }]
+      };
     }
-  }, [weatherData.anlikHavaDurumu.durumKodu]);
+    
+    const dataSlice = saatlikVeri.slice(selectedHourIndex, selectedHourIndex + 8);
 
-  const sunSpin = sunRotate.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['0deg', '360deg'],
-  });
+    return {
+      labels: dataSlice.map(item => item.saat), // Saatleri etiket olarak kullan
+      datasets: [
+        {
+          data: dataSlice.map(item => Math.round(item.sicaklik)), // Sıcaklıkları veri olarak kullan
+          color: (opacity = 1) => `rgba(135, 206, 250, ${opacity})`, // Açık mavi çizgi
+          strokeWidth: 3
+        }
+      ]
+    };
+  };
+  
+  // ✅ YENİ EKLENEN: GRAFİK İÇİN RENK AYARLARI
+  // Grafik, uygulamanın temasına (açık/koyu) uyum sağlayacak.
+  const chartConfig = {
+    backgroundGradientFrom: colors.cardBackground,
+    backgroundGradientTo: colors.cardBackground,
+    decimalPlaces: 0,
+    color: (opacity = 1) => `rgba(${theme === 'dark' ? '255, 255, 255' : '0, 0, 0'}, ${opacity})`,
+    labelColor: (opacity = 1) => `rgba(${theme === 'dark' ? '255, 255, 255' : '0, 0, 0'}, ${opacity})`,
+    style: {
+      borderRadius: 16,
+    },
+    propsForDots: {
+      r: "5",
+      strokeWidth: "2",
+      stroke: "#ffa726" // Turuncu noktalar
+    }
+  };
+
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -259,9 +129,8 @@ export default function HavaDurumuDetay({ sehir, weatherData }: HavaDurumuDetayP
         colors={theme === 'dark' ? ['#1e3c72', '#2a5298', '#4c6ef5'] : ['#87CEEB', '#B0E0E6']}
         style={styles.backgroundGradient}
       />
-      {/* Sadece sol üstte absolute animasyon */}
       <View style={{ position: 'absolute', top: 32, left: 16, zIndex: 20, height: 120, width: 120, justifyContent: 'flex-start', alignItems: 'center' }}>
-        <WeatherAnimation code={weatherData.anlikHavaDurumu.durumKodu} durum={weatherData.anlikHavaDurumu.durum} />
+        <WeatherAnimation code={anlikVeri.durumKodu} durum={anlikVeri.durum} />
       </View>
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
         <View style={styles.anaHavaBolumu}>
@@ -282,7 +151,7 @@ export default function HavaDurumuDetay({ sehir, weatherData }: HavaDurumuDetayP
                 key={index}
                 style={styles.hourlyItem}
                 onPress={() => {
-                  setSelectedHour(index);
+                  setSelectedHourIndex(index); // ✅ GÜNCELLEME: Tıklanan saatin index'ini state'e kaydet
                   setModalVisible(true);
                 }}
                 activeOpacity={0.7}
@@ -294,13 +163,40 @@ export default function HavaDurumuDetay({ sehir, weatherData }: HavaDurumuDetayP
             ))}
           </ScrollView>
         </View>
-        {/* Modal - İçerik boş, sadece kapat butonu var */}
-        <Modal visible={modalVisible} animationType="slide" transparent onRequestClose={() => setModalVisible(false)}>
+        
+        {/* ✅ GÜNCELLENMİŞ MODAL */}
+        <Modal 
+            visible={modalVisible} 
+            animationType="slide" 
+            transparent 
+            onRequestClose={() => setModalVisible(false)}
+        >
           <View style={styles.modalOverlay}>
-            <View style={styles.modalContent}>
-              <TouchableOpacity onPress={() => setModalVisible(false)} style={styles.closeButton}>
-                <Text style={{ color: colors.text, fontSize: 16 }}>Kapat</Text>
-              </TouchableOpacity>
+            <View style={[styles.modalContent, { backgroundColor: colors.cardBackground }]}>
+              <Text style={[styles.modalTitle, {color: colors.text}]}>Sonraki Saatler için Sıcaklık</Text>
+              
+              {/* Grafik burada gösteriliyor */}
+              {saatlikVeri.length > 0 && (
+                 <LineChart
+                    data={getChartData()}
+                    width={Dimensions.get("window").width - 80} // Modal genişliğinden biraz küçük
+                    height={220}
+                    chartConfig={chartConfig}
+                    bezier // Çizgiyi yumuşatır
+                    style={{
+                      marginVertical: 16,
+                      borderRadius: 16
+                    }}
+                    yAxisSuffix="°"
+                 />
+              )}
+
+              <Pressable
+                style={[styles.closeButton, { backgroundColor: colors.background }]}
+                onPress={() => setModalVisible(false)}
+              >
+                <Text style={{ color: colors.text, fontSize: 16, fontWeight: '600' }}>Kapat</Text>
+              </Pressable>
             </View>
           </View>
         </Modal>
@@ -346,14 +242,13 @@ export default function HavaDurumuDetay({ sehir, weatherData }: HavaDurumuDetayP
   );
 }
 
-// --- styles tanımı (değişmediği için aynı kalabilir) ---
+// ✅ GÜNCELLENMİŞ STİLLER (Modal için eklemeler yapıldı)
 const styles = StyleSheet.create({
   container: { flex: 1 },
   backgroundGradient: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
   scrollView: { flex: 1 },
   scrollContent: { paddingBottom: 100, paddingTop: 80 },
   anaHavaBolumu: { alignItems: 'center', paddingHorizontal: 20, marginBottom: 40 },
-  anaHavaBolumuRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, marginBottom: 40 },
   sehirAdi: { fontSize: 34, fontWeight: '300' },
   anlikSicaklik: { fontSize: 96, fontWeight: '200' },
   havaDurumu: { fontSize: 20, fontWeight: '400', marginBottom: 8 },
@@ -379,7 +274,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
     opacity: 0.8,
   },
-  hourlyScrollContent: { paddingBottom: 10 },
+  hourlyScrollContent: { paddingRight: 20 },
   hourlyItem: { alignItems: 'center', marginRight: 25 },
   hourlyTime: { fontSize: 13, fontWeight: '600', marginBottom: 8 },
   hourlyIcon: { height: 32, width: 32, alignItems: 'center', justifyContent: 'center', marginBottom: 8 },
@@ -396,29 +291,44 @@ const styles = StyleSheet.create({
   gunText: { fontSize: 17, fontWeight: '400', width: 50 },
   gunlukIcon: { marginLeft: 12, width: 28, height: 28, alignItems: 'center', justifyContent: 'center' },
   gunlukSag: { flexDirection: 'row', alignItems: 'center', flex: 1, justifyContent: 'flex-end' },
-  gunlukDusukSicaklik: {
-    fontSize: 17,
-    fontWeight: '400',
-    width: 35,
-    textAlign: 'right',
-    opacity: 0.8,
-  },
+  gunlukDusukSicaklik: { fontSize: 17, fontWeight: '400', width: 35, textAlign: 'right', opacity: 0.8 },
   sicaklikAralikKapsayici: { flex: 1, height: 4, borderRadius: 2, marginHorizontal: 12 },
   sicaklikAralikArkaPlan: { flex: 1, borderRadius: 2 },
-  gunlukYuksekSicaklik: {
-    fontSize: 17,
-    fontWeight: '400',
-    width: 35,
-    textAlign: 'right',
-  },
-  detayKartlarGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', paddingHorizontal: 20, gap: 12 },
-  detayKartKapsayici: { width: (width - 52) / 2 },
-  detayKart: { padding: 16, alignItems: 'center', height: 120 },
+  gunlukYuksekSicaklik: { fontSize: 17, fontWeight: '400', width: 35, textAlign: 'right' },
+  detayKartlarGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', paddingHorizontal: 20 },
+  detayKartKapsayici: { width: (width - 52) / 2, marginBottom: 12 },
+  detayKart: { padding: 16, alignItems: 'center', height: 120, margin: 0 },
   detayKartIcon: { alignItems: 'center', marginBottom: 8 },
   detayKartBaslik: { fontSize: 13, fontWeight: '600', marginBottom: 4, letterSpacing: 0.5, textAlign: 'center' },
   detayKartDeger: { fontSize: 24, fontWeight: '400', flex: 1, textAlign: 'center' },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
-  modalContent: { backgroundColor: '#222C', borderRadius: 20, padding: 24, alignItems: 'center', width: 320 },
-  rotateButton: { padding: 12, backgroundColor: '#3338', borderRadius: 12 },
-  closeButton: { marginTop: 16, padding: 10, backgroundColor: '#3338', borderRadius: 10 },
+  // Modal Stilleri
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    justifyContent: 'center',
+    alignItems: 'center'
+  },
+  modalContent: {
+    borderRadius: 20,
+    padding: 24,
+    alignItems: 'center',
+    width: '90%',
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 10,
+  },
+  closeButton: {
+    marginTop: 20,
+    borderRadius: 20,
+    paddingVertical: 12,
+    paddingHorizontal: 30,
+    elevation: 2,
+  },
 });
