@@ -29,6 +29,23 @@ export default function HavaDurumuDetay({ sehir, weatherData }: HavaDurumuDetayP
     const tooltipAnim = React.useRef(new Animated.Value(0)).current;
     const scrollX = React.useRef(0);
 
+    React.useEffect(() => {
+        if (!saatlikVeri || saatlikVeri.length === 0) return;
+        const now = new Date();
+        const nowMinutes = now.getHours() * 60 + now.getMinutes();
+
+        let closestIndex = saatlikVeri.length - 1; // Varsayılan: sonuncu
+        for (let i = 0; i < saatlikVeri.length; i++) {
+            const [hourStr, minStr] = saatlikVeri[i].saat.split(":");
+            const itemMinutes = parseInt(hourStr, 10) * 60 + parseInt(minStr || '0', 10);
+            if (itemMinutes >= nowMinutes) {
+                closestIndex = i;
+                break;
+            }
+        }
+        setSelectedHourIndex(closestIndex);
+    }, [weatherData]);
+
 
     if (!weatherData || !sehir || !weatherData.anlikHavaDurumu) return null;
 
@@ -103,9 +120,16 @@ export default function HavaDurumuDetay({ sehir, weatherData }: HavaDurumuDetayP
                 <View style={[styles.card, cardStyle, { backgroundColor: colors.cardBackground, borderColor: colors.borderColor }]}>
                     <Text style={[styles.cardTitle, { color: colors.icon }]}>SAATLİK TAHMİN</Text>
                     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.hourlyScrollContent}>
-                        {saatlikVeri.map((item, index) => (
-                            <TouchableOpacity key={index} style={styles.hourlyItem} onPress={() => { setSelectedHourIndex(index); setModalVisible(true); }} activeOpacity={0.7}>
-                                <Text style={[styles.hourlyTime, { color: colors.icon }]}>{index === 0 ? 'Şimdi' : item.saat}</Text>
+                        {/* Şimdi kutusu: anlık veri */}
+                        <TouchableOpacity style={styles.hourlyItem} onPress={() => setModalVisible(true)} activeOpacity={0.7}>
+                            <Text style={[styles.hourlyTime, { color: colors.icon }]}>Şimdi</Text>
+                            <View style={styles.hourlyIcon}>{renderWeatherIcon(anlikVeri.durumKodu, 24)}</View>
+                            <Text style={[styles.hourlyTemp, { color: colors.text }]}>{convertTemperature(anlikVeri.sicaklik)}°</Text>
+                        </TouchableOpacity>
+                        {/* Sonraki saatler: saatlik tahmin */}
+                        {saatlikVeri.slice(selectedHourIndex, selectedHourIndex + 23).map((item: any, index: number) => (
+                            <TouchableOpacity key={index} style={styles.hourlyItem} onPress={() => setModalVisible(true)} activeOpacity={0.7}>
+                                <Text style={[styles.hourlyTime, { color: colors.icon }]}>{item.saat}</Text>
                                 <View style={styles.hourlyIcon}>{renderWeatherIcon(item.durumKodu, 24)}</View>
                                 <Text style={[styles.hourlyTemp, { color: colors.text }]}>{convertTemperature(item.sicaklik)}°</Text>
                             </TouchableOpacity>
