@@ -32,6 +32,7 @@ export default function HavaDurumuDetay({ sehir, weatherData }: HavaDurumuDetayP
     React.useEffect(() => {
         if (!saatlikVeri || saatlikVeri.length === 0) return;
         const now = new Date();
+        const anlikSaat = now.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit', hour12: false });
         const nowMinutes = now.getHours() * 60 + now.getMinutes();
 
         let closestIndex = saatlikVeri.length - 1; // Varsayılan: sonuncu
@@ -127,12 +128,17 @@ export default function HavaDurumuDetay({ sehir, weatherData }: HavaDurumuDetayP
                             <Text style={[styles.hourlyTemp, { color: colors.text }]}>{convertTemperature(anlikVeri.sicaklik)}°</Text>
                         </TouchableOpacity>
                         {/* Sonraki saatler: saatlik tahmin */}
-                        {saatlikVeri.slice(selectedHourIndex, selectedHourIndex + 23).map((item: any, index: number) => (
-                            <TouchableOpacity key={index} style={styles.hourlyItem} onPress={() => setModalVisible(true)} activeOpacity={0.7}>
-                                <Text style={[styles.hourlyTime, { color: colors.icon }]}>{item.saat}</Text>
-                                <View style={styles.hourlyIcon}>{renderWeatherIcon(item.durumKodu, 24)}</View>
-                                <Text style={[styles.hourlyTemp, { color: colors.text }]}>{convertTemperature(item.sicaklik)}°</Text>
-                            </TouchableOpacity>
+                        {saatlikVeri
+                            .slice(
+                                saatlikVeri[selectedHourIndex]?.saat === anlikVeri.saat ? selectedHourIndex + 1 : selectedHourIndex,
+                                (saatlikVeri[selectedHourIndex]?.saat === anlikVeri.saat ? selectedHourIndex + 1 : selectedHourIndex) + 23
+                            )
+                            .map((item: any, index: number) => (
+                                <TouchableOpacity key={index} style={styles.hourlyItem} onPress={() => setModalVisible(true)} activeOpacity={0.7}>
+                                    <Text style={[styles.hourlyTime, { color: colors.icon }]}>{item.saat}</Text>
+                                    <View style={styles.hourlyIcon}>{renderWeatherIcon(item.durumKodu, 24)}</View>
+                                    <Text style={[styles.hourlyTemp, { color: colors.text }]}>{convertTemperature(item.sicaklik)}°</Text>
+                                </TouchableOpacity>
                         ))}
                     </ScrollView>
                 </View>

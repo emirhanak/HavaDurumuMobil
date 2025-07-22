@@ -19,6 +19,7 @@ import java.time.format.TextStyle;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.time.ZoneOffset;
 
 @Service
 public class HavaDurumuService {
@@ -50,7 +51,22 @@ public class HavaDurumuService {
             JsonNode hourlyTimeline = rootNode.path("timelines").path("hourly");
             JsonNode dailyTimeline = rootNode.path("timelines").path("daily");
 
-            JsonNode anlikVeriNode = hourlyTimeline.get(0).path("values");
+            // Şu anki UTC zamanı al
+            OffsetDateTime now = OffsetDateTime.now(ZoneOffset.UTC);
+
+            // En yakın ileri saatlik tahmini bul
+            JsonNode enYakinSaatlikNode = null;
+            for (JsonNode node : hourlyTimeline) {
+                OffsetDateTime tahminZamani = OffsetDateTime.parse(node.path("time").asText());
+                if (!tahminZamani.isBefore(now)) {
+                    enYakinSaatlikNode = node;
+                    break;
+                }
+            }
+            if (enYakinSaatlikNode == null) {
+                enYakinSaatlikNode = hourlyTimeline.get(0); // fallback
+            }
+            JsonNode anlikVeriNode = enYakinSaatlikNode.path("values");
             JsonNode gunlukOzetNode = dailyTimeline.get(0).path("values");
 
             AnlikHavaDurumuDto anlikDto = new AnlikHavaDurumuDto();
