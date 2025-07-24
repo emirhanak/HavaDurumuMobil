@@ -4,7 +4,7 @@ import com.havadurumu.backend.dto.GirdiVerisi;
 import com.havadurumu.backend.dto.HavaDurumuCevapDto;
 import com.havadurumu.backend.dto.SaatlikTahminDto;
 import com.havadurumu.backend.dto.TahminCiktisi;
-import com.havadurumu.backend.service.YapayZekaTahminService; // Yeni servisi import ediyoruz
+import com.havadurumu.backend.service.YapayZekaTahminService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -12,87 +12,78 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
 @RestController
 public class HavaDurumuController {
 
-    // Mevcut HavaDurumuService'in kalıyor. @Autowired stilini koruyoruz.
     @Autowired
     private HavaDurumuService havaDurumuService;
     
-    // YENİ EKLENEN: YapayZekaTahminService'i buraya enjekte ediyoruz.
     @Autowired
     private YapayZekaTahminService yapayZekaTahminService;
 
-
-    // Mobil uygulamadan gelen isteği karşılayan mevcut metodun.
-    // Endpoint adresini ("/api/weather") senin kullandığın şekilde güncelledim.
     @GetMapping("/api/weather")
     public HavaDurumuCevapDto getWeather(
             @RequestParam("lat") String lat,
             @RequestParam("lon") String lon) {
         
-        // --- 1. Adım: Tomorrow.io'dan mevcut tüm verileri çek ---
-        // Bu senin mevcut kodun, hava durumu bilgilerini alıyor.
+        System.out.println("\n--- YENİ İSTEK GELDİ ---");
+
+        // 1. Tomorrow.io'dan tüm hava durumu verilerini al
         HavaDurumuCevapDto cevapDto = havaDurumuService.getWeather(lat, lon);
 
-        // Eğer ilk API'den cevap gelmezse, işlemi sonlandır.
-        if (cevapDto == null || cevapDto.getSaatlikTahmin() == null) {
-            return null;
+        // --- CASUS 1: İlk veriyi kontrol edelim ---
+        if (cevapDto == null || cevapDto.getSaatlikTahmin() == null || cevapDto.getSaatlikTahmin().isEmpty()) {
+            System.out.println("HATA: HavaDurumuService'ten saatlik tahmin verisi alınamadı veya liste boş!");
+            return cevapDto; 
         }
+        System.out.println("ADIM 1 BAŞARILI: HavaDurumuService'ten " + cevapDto.getSaatlikTahmin().size() + " adet saatlik tahmin alındı.");
 
-        // --- 2. Adım: AI Tahmini için Gerekli Veriyi Hazırla ---
-        // Tomorrow.io'dan gelen saatlik tahmin listesini, Python API'sinin anlayacağı
-        // GirdiVerisi formatına dönüştürüyoruz.
+
+        // 2. AI Tahmini için Gerekli Veriyi Hazırla
         List<GirdiVerisi> sonVerilerAI = cevapDto.getSaatlikTahmin().stream()
             .map(saatlikDto -> {
-                // Saat bilgisini Python'ın anlayacağı tam tarih formatına çeviriyoruz.
-                // Örn: "15:00" -> "2025-07-24T15:00:00Z"
                 String tamTarih = OffsetDateTime.now().toLocalDate().toString() + "T" + saatlikDto.getSaat() + ":00Z";
-                
-                // TODO: Bu en önemli kısım! HavaDurumuService'in, Tomorrow.io'dan
-                // saatlik "nem" verisini de alıp SaatlikTahminDto içine koyacak şekilde
-                // güncellenmesi gerekiyor. Şimdilik varsayılan bir değer ekliyorum.
-                double nem = saatlikDto.getNem(); // Bu metodu SaatlikTahminDto'ya eklemelisin.
-                
+                double nem = saatlikDto.getNem();
                 return new GirdiVerisi(tamTarih, nem, saatlikDto.getDurumKodu());
             })
             .collect(Collectors.toList());
+        
+        // --- CASUS 2: Dönüştürülen veriyi kontrol edelim ---
+        System.out.println("ADIM 2 BAŞARILI: Veri, Python'a gönderilecek formata dönüştürüldü. Liste boyutu: " + sonVerilerAI.size());
 
-        // --- 3. Adım: Yapay Zeka Servisinden 3 saatlik tahmini al ---
-        // Hazırladığımız veriyi Python API'sine gönderiyoruz.
-        if (!sonVerilerAI.isEmpty()) {
-            List<TahminCiktisi> aiTahminleri = yapayZekaTahminService.getYapayZekaTahmini(sonVerilerAI);
-    
-            // --- 4. Adım: AI Tahminlerini mevcut yanıta ekle ---
-            // AI'dan gelen 3 saatlik tahmini, mobil uygulamanın anlayacağı SaatlikTahminDto formatına çeviriyoruz.
+
+        // 3. Yapay Zeka Servisinden 3 saatlik tahmini al
+        System.out.println("ADIM 3: Yapay zeka servisine tahmin isteği gönderiliyor...");
+        List<TahminCiktisi> aiTahminleri = yapayZekaTahminService.getYapayZekaTahmini(sonVerilerAI);
+        // YENİ EKLENEN LOGLAMA KODU
+if (aiTahminleri != null && !aiTahminleri.isEmpty()) {
+    System.out.println("\n--- BAŞARILI: YAPAY ZEKA TAHMİN SONUÇLARI ---");
+    for (TahminCiktisi tahmin : aiTahminleri) {
+        System.out.println("Saat: " + tahmin.getDs() + ", Tahmin Edilen Sıcaklık: " + tahmin.getYhat());
+    }
+    System.out.println("--------------------------------------------");
+}
+        System.out.println("Yapay zeka servisinden cevap alındı. Tahmin sayısı: " + (aiTahminleri != null ? aiTahminleri.size() : 0));
+
+
+        // 4. AI Tahminlerini mevcut yanıta ekle
+        if (aiTahminleri != null && !aiTahminleri.isEmpty()) {
             for (TahminCiktisi aiTahmin : aiTahminleri) {
                 SaatlikTahminDto yapayZekaTahminDto = new SaatlikTahminDto();
-                
-                // Gelen tam tarih formatını "HH:00" formatına çevir
                 OffsetDateTime odt = OffsetDateTime.parse(aiTahmin.getDs());
                 yapayZekaTahminDto.setSaat(odt.format(DateTimeFormatter.ofPattern("HH:00")));
-                
-                // Tahmin edilen sıcaklığı ata
                 yapayZekaTahminDto.setSicaklik(aiTahmin.getYhat());
-                
-                // Mobil uygulamada ayırt edilebilmesi için özel bir durum kodu ata
-                yapayZekaTahminDto.setDurumKodu(9999); 
-                
-                // TODO: AI tahmini için nem değeri de atanabilir. Şimdilik 0 bırakıyorum.
-                yapayZekaTahminDto.setNem(0);
-
-                // Bu yeni tahmini, mevcut saatlik tahmin listesinin sonuna ekliyoruz.
+                yapayZekaTahminDto.setDurumKodu(9999);
+                yapayZekaTahminDto.setNem(0); 
                 cevapDto.getSaatlikTahmin().add(yapayZekaTahminDto);
             }
+            System.out.println("ADIM 4 BAŞARILI: AI tahminleri ana yanıta eklendi.");
         }
 
-        // --- 5. Adım: Sonucu mobil uygulamaya gönder ---
-        // Hem Tomorrow.io verilerini hem de sonuna eklenmiş AI tahminlerini içeren
-        // güncellenmiş cevap objesini geri dönüyoruz.
+        // 5. Nihai sonucu geri dön
         return cevapDto;
     }
 }
