@@ -44,17 +44,15 @@ public class HavaDurumuService {
 
         try {
             String jsonResponse = restTemplate.getForObject(fullUrl, String.class);
-            System.out.println("DEBUG: Tomorrow.io JSON = " + jsonResponse); // JSON'u logla
+            System.out.println("DEBUG: Tomorrow.io JSON = " + jsonResponse);
             ObjectMapper objectMapper = new ObjectMapper();
             JsonNode rootNode = objectMapper.readTree(jsonResponse);
 
             JsonNode hourlyTimeline = rootNode.path("timelines").path("hourly");
             JsonNode dailyTimeline = rootNode.path("timelines").path("daily");
 
-            // Şu anki UTC zamanı al
             OffsetDateTime now = OffsetDateTime.now(ZoneOffset.UTC);
 
-            // En yakın ileri saatlik tahmini bul
             JsonNode enYakinSaatlikNode = null;
             for (JsonNode node : hourlyTimeline) {
                 OffsetDateTime tahminZamani = OffsetDateTime.parse(node.path("time").asText());
@@ -64,7 +62,7 @@ public class HavaDurumuService {
                 }
             }
             if (enYakinSaatlikNode == null) {
-                enYakinSaatlikNode = hourlyTimeline.get(0); // fallback
+                enYakinSaatlikNode = hourlyTimeline.get(0);
             }
             JsonNode anlikVeriNode = enYakinSaatlikNode.path("values");
             JsonNode gunlukOzetNode = dailyTimeline.get(0).path("values");
@@ -79,24 +77,24 @@ public class HavaDurumuService {
             anlikDto.setRuzgarHizi(anlikVeriNode.path("windSpeed").asDouble());
             anlikDto.setGorusMesafesi(anlikVeriNode.path("visibility").asDouble());
             anlikDto.setBasinc(anlikVeriNode.path("pressureSurfaceLevel").asDouble());
-
-            int kod = -1;
-            if (anlikVeriNode.has("weatherCode")) {
-                kod = anlikVeriNode.path("weatherCode").asInt();
-            } else {
-                System.err.println("HATA: weatherCode alanı bulunamadı! JSON: " + anlikVeriNode.toString());
-            }
-            anlikDto.setDurumKodu(kod);
+            anlikDto.setDurumKodu(anlikVeriNode.path("weatherCode").asInt());
 
             List<SaatlikTahminDto> saatlikListe = new ArrayList<>();
             for (int i = 0; i < 24 && i < hourlyTimeline.size(); i++) {
                 JsonNode saatlikNode = hourlyTimeline.get(i);
                 if (saatlikNode == null) break;
+
+                JsonNode valuesNode = saatlikNode.path("values");
                 SaatlikTahminDto saatlikDto = new SaatlikTahminDto();
                 OffsetDateTime odt = OffsetDateTime.parse(saatlikNode.path("time").asText());
+                
                 saatlikDto.setSaat(odt.format(DateTimeFormatter.ofPattern("HH:00")));
-                saatlikDto.setSicaklik(saatlikNode.path("values").path("temperature").asDouble());
-                saatlikDto.setDurumKodu(saatlikNode.path("values").path("weatherCode").asInt());
+                saatlikDto.setSicaklik(valuesNode.path("temperature").asDouble());
+                saatlikDto.setDurumKodu(valuesNode.path("weatherCode").asInt());
+                
+                // YENİ EKLENEN SATIR: JSON'dan 'humidity' değerini okuyup DTO'ya ekliyoruz.
+                saatlikDto.setNem(valuesNode.path("humidity").asDouble());
+                
                 saatlikListe.add(saatlikDto);
             }
 
@@ -112,8 +110,6 @@ public class HavaDurumuService {
             }
             
             HavaDurumuCevapDto cevapDto = new HavaDurumuCevapDto();
-            // DÜZELTME: Artık sehirAdi backend'den gönderilmediği için bu satırı siliyoruz.
-            // cevapDto.setSehirAdi(...); 
             cevapDto.setAnlikHavaDurumu(anlikDto);
             cevapDto.setSaatlikTahmin(saatlikListe);
             cevapDto.setGunlukTahmin(gunlukListe);
