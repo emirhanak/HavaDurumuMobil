@@ -6,7 +6,7 @@ import { Cloud, Thermometer, Droplets, Wind, Eye, Sun, CloudRain } from 'lucide-
 import { useSettings } from '@/context/SettingsContext';
 import WeatherAnimation from './WeatherAnimation';
 
-// --- Interface Tanımlamaları ---
+// --- Interface Tanımlamaları (Değişiklik yok) ---
 interface Sehir { id: string; ad: string; enlem: number; boylam: number; sicaklik: number; }
 interface AnlikHavaDurumu { sicaklik: number; durum: string; enYuksek: number; enDusuk: number; hissedilen: number; nem: number; ruzgarHizi: number; gorusMesafesi: number; basinc: number; durumKodu: number; }
 interface SaatlikTahmin { saat: string; sicaklik: number; durumKodu: number; }
@@ -29,31 +29,13 @@ export default function HavaDurumuDetay({ sehir, weatherData }: HavaDurumuDetayP
     const tooltipAnim = React.useRef(new Animated.Value(0)).current;
     const scrollX = React.useRef(0);
 
-    React.useEffect(() => {
-        if (!saatlikVeri || saatlikVeri.length === 0) return;
-        const now = new Date();
-        const anlikSaat = now.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit', hour12: false });
-        const nowMinutes = now.getHours() * 60 + now.getMinutes();
-
-        let closestIndex = saatlikVeri.length - 1; // Varsayılan: sonuncu
-        for (let i = 0; i < saatlikVeri.length; i++) {
-            const [hourStr, minStr] = saatlikVeri[i].saat.split(":");
-            const itemMinutes = parseInt(hourStr, 10) * 60 + parseInt(minStr || '0', 10);
-            if (itemMinutes >= nowMinutes) {
-                closestIndex = i;
-                break;
-            }
-        }
-        setSelectedHourIndex(closestIndex);
-    }, [weatherData]);
-
-
     if (!weatherData || !sehir || !weatherData.anlikHavaDurumu) return null;
 
     const anlikVeri = weatherData.anlikHavaDurumu;
     const saatlikVeri = weatherData.saatlikTahmin || [];
     const gunlukVeri = weatherData.gunlukTahmin || [];
 
+    // Geri kalan fonksiyonlar aynı kalabilir...
     const handleDataPointClick = (data: { value: number; index: number; x: number; y: number; }) => {
         const correctedX = data.x - scrollX.current + CHART_LEFT_PADDING;
         const newData = { ...data, x: correctedX };
@@ -91,10 +73,27 @@ export default function HavaDurumuDetay({ sehir, weatherData }: HavaDurumuDetayP
     const DATA_POINT_WIDTH = 60;
     const getChartData = () => {
         if (saatlikVeri.length === 0) return { labels: [], datasets: [{ data: [] }] };
-        const dataSlice = saatlikVeri.slice(selectedHourIndex, selectedHourIndex + 24);
+        
+        // Get current hour to start from
+        const now = new Date();
+        const currentHour = now.getHours();
+        
+        // Get the data slice for the chart
+        const dataSlice = saatlikVeri.slice(0, 24);
+        
+        // Generate time labels starting from current hour
+        const labels = dataSlice.map((_, index) => {
+            const displayHour = (currentHour + index) % 24;
+            return index === 0 ? 'Şimdi' : `${displayHour.toString().padStart(2, '0')}:00`;
+        });
+        
         return {
-            labels: dataSlice.map(item => item.saat),
-            datasets: [{ data: dataSlice.map(item => Math.round(item.sicaklik)), color: (opacity = 1) => `rgba(135, 206, 250, ${opacity})`, strokeWidth: 3 }]
+            labels: labels,
+            datasets: [{
+                data: dataSlice.map(item => Math.round(item.sicaklik)),
+                color: (opacity = 1) => `rgba(135, 206, 250, ${opacity})`,
+                strokeWidth: 3
+            }]
         };
     };
     const chartConfig = {
@@ -114,35 +113,53 @@ export default function HavaDurumuDetay({ sehir, weatherData }: HavaDurumuDetayP
                 <View style={styles.anaHavaBolumu}>
                     <Text style={[styles.sehirAdi, { color: colors.text }]}>{sehir.ad}</Text>
                     <Text style={[styles.anlikSicaklik, { color: colors.text }]}>{convertTemperature(anlikVeri.sicaklik)}°</Text>
-                    <Text style={[styles.havaDurumu, { color: colors.text }]}>{anlikVeri.durum}</Text>
+                    <Text style={[styles.havaDurumu, { color: colors.text, marginBottom: 8 }]}>{anlikVeri.durum} · Hissedilen: {convertTemperature(anlikVeri.hissedilen)}°</Text>
                     <Text style={[styles.yuksekDusukSicaklik, { color: colors.text }]}>Y:{convertTemperature(anlikVeri.enYuksek)}° D:{convertTemperature(anlikVeri.enDusuk)}°</Text>
                 </View>
 
+                {/* --- SAATLİK TAHMİN BÖLÜMÜNÜN YENİ VE DOĞRU HALİ --- */}
                 <View style={[styles.card, cardStyle, { backgroundColor: colors.cardBackground, borderColor: colors.borderColor }]}>
                     <Text style={[styles.cardTitle, { color: colors.icon }]}>SAATLİK TAHMİN</Text>
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.hourlyScrollContent}>
-                        {/* Şimdi kutusu: anlık veri */}
-                        <TouchableOpacity style={styles.hourlyItem} onPress={() => setModalVisible(true)} activeOpacity={0.7}>
-                            <Text style={[styles.hourlyTime, { color: colors.icon }]}>Şimdi</Text>
-                            <View style={styles.hourlyIcon}>{renderWeatherIcon(anlikVeri.durumKodu, 24)}</View>
-                            <Text style={[styles.hourlyTemp, { color: colors.text }]}>{convertTemperature(anlikVeri.sicaklik)}°</Text>
-                        </TouchableOpacity>
-                        {/* Sonraki saatler: saatlik tahmin */}
-                        {saatlikVeri
-                            .slice(
-                                saatlikVeri[selectedHourIndex]?.saat === anlikVeri.saat ? selectedHourIndex + 1 : selectedHourIndex,
-                                (saatlikVeri[selectedHourIndex]?.saat === anlikVeri.saat ? selectedHourIndex + 1 : selectedHourIndex) + 23
-                            )
-                            .map((item: any, index: number) => (
-                                <TouchableOpacity key={index} style={styles.hourlyItem} onPress={() => setModalVisible(true)} activeOpacity={0.7}>
-                                    <Text style={[styles.hourlyTime, { color: colors.icon }]}>{item.saat}</Text>
-                                    <View style={styles.hourlyIcon}>{renderWeatherIcon(item.durumKodu, 24)}</View>
-                                    <Text style={[styles.hourlyTemp, { color: colors.text }]}>{convertTemperature(item.sicaklik)}°</Text>
+                    <ScrollView 
+                        horizontal 
+                        showsHorizontalScrollIndicator={false} 
+                        contentContainerStyle={styles.hourlyScrollContent}
+                        contentOffset={{x: 0, y: 0}}
+                    >
+                        {saatlikVeri.map((item, index) => {
+                            const now = new Date();
+                            const currentHour = now.getHours();
+                            const displayHour = (currentHour + index) % 24;
+                            const isCurrentHour = index === 0;
+                            // Format the hour as 'HH:00' for display
+                            const displayTime = isCurrentHour ? 'Şimdi' : `${displayHour.toString().padStart(2, '0')}:00`;
+                            
+                            return (
+                                <TouchableOpacity
+                                    key={index}
+                                    style={styles.hourlyItem}
+                                    onPress={() => {
+                                        setSelectedHourIndex(index);
+                                        setModalVisible(true);
+                                    }}
+                                    activeOpacity={0.7}
+                                >
+                                    <Text style={[styles.hourlyTime, { color: colors.icon }]}>
+                                        {displayTime}
+                                    </Text>
+                                    <View style={styles.hourlyIcon}>
+                                        {renderWeatherIcon(item.durumKodu, 24)}
+                                    </View>
+                                    <Text style={[styles.hourlyTemp, { color: colors.text }]}>
+                                        {convertTemperature(item.sicaklik)}°
+                                    </Text>
                                 </TouchableOpacity>
-                        ))}
+                            );
+                        })}
                     </ScrollView>
                 </View>
 
+                {/* Modal ve diğer kısımlar aynı kalabilir... */}
                 <Modal visible={modalVisible} animationType="slide" transparent onRequestClose={() => setModalVisible(false)}>
                     <View style={styles.modalOverlay}>
                         <View style={[styles.modalContent, { backgroundColor: colors.cardBackground }]}>
@@ -164,7 +181,6 @@ export default function HavaDurumuDetay({ sehir, weatherData }: HavaDurumuDetayP
                                     />
                                 )}
                             </ScrollView>
-
                             {tooltipData && (
                                 <Animated.View style={[
                                     styles.tooltipContainer,
@@ -178,7 +194,6 @@ export default function HavaDurumuDetay({ sehir, weatherData }: HavaDurumuDetayP
                                     <Text style={styles.tooltipText}>{Math.round(tooltipData.value)}°</Text>
                                 </Animated.View>
                             )}
-
                             <Pressable style={[styles.closeButton, { backgroundColor: colors.background }]} onPress={() => {
                                 setTooltipData(null);
                                 setModalVisible(false);
@@ -231,7 +246,7 @@ const styles = StyleSheet.create({
     anaHavaBolumu: { alignItems: 'center', paddingHorizontal: 20, marginBottom: 40 },
     sehirAdi: { fontSize: 34, fontWeight: '300' },
     anlikSicaklik: { fontSize: 96, fontWeight: '200' },
-    havaDurumu: { fontSize: 20, fontWeight: '400', marginBottom: 8 },
+    havaDurumu: { fontSize: 20, fontWeight: '400' },
     yuksekDusukSicaklik: { fontSize: 20, fontWeight: '400' },
     card: { marginHorizontal: 20, marginBottom: 20, borderRadius: 16, borderWidth: StyleSheet.hairlineWidth, padding: 15 },
     cardShadow: { shadowColor: "#000", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 12, elevation: 5 },

@@ -8,7 +8,6 @@ import com.havadurumu.backend.dto.HavaDurumuCevapDto;
 import com.havadurumu.backend.dto.SaatlikTahminDto;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
@@ -32,7 +31,8 @@ public class HavaDurumuService {
 
     private final String apiUrl = "https://api.tomorrow.io/v4/weather/forecast";
 
-    @Cacheable("weatherCache")
+    // Önbelleği (cache) test süresince kapalı tutuyoruz. Proje bitince açabilirsin.
+    // @Cacheable("weatherCache")
     public HavaDurumuCevapDto getWeather(String lat, String lon) {
         String fullUrl = UriComponentsBuilder.fromUriString(apiUrl)
                 .queryParam("location", lat + "," + lon)
@@ -44,35 +44,47 @@ public class HavaDurumuService {
 
         try {
             String jsonResponse = restTemplate.getForObject(fullUrl, String.class);
-            System.out.println("DEBUG: Tomorrow.io JSON = " + jsonResponse);
             ObjectMapper objectMapper = new ObjectMapper();
             JsonNode rootNode = objectMapper.readTree(jsonResponse);
 
             JsonNode hourlyTimeline = rootNode.path("timelines").path("hourly");
             JsonNode dailyTimeline = rootNode.path("timelines").path("daily");
 
-            OffsetDateTime now = OffsetDateTime.now(ZoneOffset.UTC);
+            // --- GÜNCELLENMİŞ ZAMAN YÖNETİMİ ---
+            // Türkiye saat dilimini al
+            ZoneOffset turkeyOffset = ZoneOffset.of("+03:00");
+            // Şu anki zamanı Türkiye saatine göre al
+            OffsetDateTime now = OffsetDateTime.now(turkeyOffset);
+            // Saati 00:00 formatına yuvarla (örn: 10:12 -> 10:00)
+            now = now.withMinute(0).withSecond(0).withNano(0);
 
-            // "Şimdi" için en yakın ileri saatlik tahmini bul
-            JsonNode enYakinSaatlikNode = null;
-            int startIndex = -1; // ✅ YENİ: Başlangıç indeksini saklamak için değişken
+            int startIndex = -1;
 
+            // 1. Önce, şu anki saate en yakın tahmini bulalım
             for (int i = 0; i < hourlyTimeline.size(); i++) {
                 JsonNode node = hourlyTimeline.get(i);
                 OffsetDateTime tahminZamani = OffsetDateTime.parse(node.path("time").asText());
+
+                // Eğer tahminin saati, şu anki saate eşit veya daha büyükse
                 if (!tahminZamani.isBefore(now)) {
-                    enYakinSaatlikNode = node;
-                    startIndex = i; // ✅ YENİ: Doğru başlangıç indeksini bulduk ve kaydettik
+                    startIndex = i;
                     break;
                 }
             }
 
-            if (enYakinSaatlikNode == null) {
-                enYakinSaatlikNode = hourlyTimeline.get(0);
-                startIndex = 0; // fallback
+            // Eğer uygun bir başlangıç noktası bulunamadıysa, en sonki tahmini kullan
+            if (startIndex == -1) {
+                startIndex = Math.max(0, hourlyTimeline.size() - 24);
             }
-            
-            JsonNode anlikVeriNode = enYakinSaatlikNode.path("values");
+
+            // Eğer hala bulunamadıysa, listenin başını al (hata durumu için).
+            if (startIndex == -1) {
+                startIndex = 0;
+            }
+
+            // Artık "anlık veri" için ayrı bir mantığa gerek yok,
+            // doğru başlangıç noktasını bulduğumuz için oradan başlayabiliriz.
+            JsonNode anlikVeriNode = hourlyTimeline.get(startIndex).path("values");
             JsonNode gunlukOzetNode = dailyTimeline.get(0).path("values");
 
             AnlikHavaDurumuDto anlikDto = new AnlikHavaDurumuDto();
@@ -87,9 +99,8 @@ public class HavaDurumuService {
             anlikDto.setBasinc(anlikVeriNode.path("pressureSurfaceLevel").asDouble());
             anlikDto.setDurumKodu(anlikVeriNode.path("weatherCode").asInt());
 
-            // --- ✅ GÜNCELLENMİŞ SAATLİK TAHMİN DÖNGÜSÜ ---
             List<SaatlikTahminDto> saatlikListe = new ArrayList<>();
-            // Döngü artık '0' yerine, bulduğumuz 'startIndex'den başlıyor.
+            // Döngü artık doğru 'startIndex'den başlıyor.
             for (int i = startIndex; i < startIndex + 24 && i < hourlyTimeline.size(); i++) {
                 JsonNode saatlikNode = hourlyTimeline.get(i);
                 if (saatlikNode == null) break;
@@ -110,7 +121,7 @@ public class HavaDurumuService {
             for (JsonNode gunlukNode : dailyTimeline) {
                 GunlukTahminDto gunlukDto = new GunlukTahminDto();
                 OffsetDateTime odt = OffsetDateTime.parse(gunlukNode.path("time").asText());
-                gunlukDto.setGun(odt.getDayOfWeek().getDisplayName(TextStyle.FULL, Locale.forLanguageTag("tr")));
+                gunlukDto.setGun(odt.getDayOfWeek().getDisplayName(TextStyle.FULL, new Locale("tr", "TR")));
                 gunlukDto.setEnDusuk(gunlukNode.path("values").path("temperatureMin").asDouble());
                 gunlukDto.setEnYuksek(gunlukNode.path("values").path("temperatureMax").asDouble());
                 gunlukDto.setDurumKodu(gunlukNode.path("values").path("weatherCodeMax").asInt());
@@ -126,6 +137,7 @@ public class HavaDurumuService {
 
         } catch (Exception e) {
             System.err.println("API isteği sırasında hata oluştu: " + e.getMessage());
+            e.printStackTrace(); // Hatanın detayını görmek için
             return null;
         }
     }
