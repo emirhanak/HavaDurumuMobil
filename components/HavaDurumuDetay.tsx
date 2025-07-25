@@ -17,7 +17,7 @@ interface HavaDurumuDetayProps { sehir: Sehir; weatherData: WeatherData | null; 
 const { width } = Dimensions.get('window');
 const MODAL_HORIZONTAL_PADDING = 16;
 const CHART_LEFT_PADDING = 16;
-
+const Y_AXIS_WIDTH = 40; // Y ekseni için sabit alan
 
 export default function HavaDurumuDetay({ sehir, weatherData }: HavaDurumuDetayProps) {
     const { unit, colors, theme } = useSettings();
@@ -35,9 +35,9 @@ export default function HavaDurumuDetay({ sehir, weatherData }: HavaDurumuDetayP
     const saatlikVeri = weatherData.saatlikTahmin || [];
     const gunlukVeri = weatherData.gunlukTahmin || [];
 
-    // Geri kalan fonksiyonlar aynı kalabilir...
     const handleDataPointClick = (data: { value: number; index: number; x: number; y: number; }) => {
-        const correctedX = data.x - scrollX.current + CHART_LEFT_PADDING;
+        // X koordinatını scroll offset'i ve sabit y ekseni alanını dikkate alarak düzelt
+        const correctedX = data.x - scrollX.current + Y_AXIS_WIDTH;
         const newData = { ...data, x: correctedX };
 
         if (tooltipData && tooltipData.index === data.index) {
@@ -53,35 +53,36 @@ export default function HavaDurumuDetay({ sehir, weatherData }: HavaDurumuDetayP
         if (unit === 'F') return Math.round((celsius * 9 / 5) + 32);
         return Math.round(celsius);
     };
+
     const renderWeatherIcon = (code: number, size: number) => {
         if (code >= 8000) return <CloudRain size={size} color={colors.text} />;
         if (code >= 4000 && code < 5000) return <CloudRain size={size} color={colors.text} />;
         if (code === 1000 || code === 1100) return <Sun size={size} color={colors.text} />;
         return <Cloud size={size} color={colors.text} />;
     };
+
     const gunKisaltma = (gun: string) => {
         const map: Record<string, string> = { 'Pazartesi': 'Pts', 'Salı': 'Sal', 'Çarşamba': 'Çrş', 'Perşembe': 'Prş', 'Cuma': 'Cum', 'Cumartesi': 'Cts', 'Pazar': 'Paz' };
         return map[gun] || gun.substring(0, 3);
     };
+
     const detaylar = [
         { title: 'HİSSEDİLEN', value: `${convertTemperature(anlikVeri.hissedilen)}°`, icon: <Thermometer size={20} color={colors.icon} /> },
         { title: 'NEM', value: `${Math.round(anlikVeri.nem)}%`, icon: <Droplets size={20} color={colors.icon} /> },
         { title: 'RÜZGAR', value: `${anlikVeri.ruzgarHizi.toFixed(1)} km/s`, icon: <Wind size={20} color={colors.icon} /> },
         { title: 'GÖRÜŞ MESAFESİ', value: `${anlikVeri.gorusMesafesi.toFixed(1)} km`, icon: <Eye size={20} color={colors.icon} /> },
     ];
+
     const cardStyle = theme === 'light' ? styles.cardShadow : {};
     const DATA_POINT_WIDTH = 60;
+
     const getChartData = () => {
         if (saatlikVeri.length === 0) return { labels: [], datasets: [{ data: [] }] };
         
-        // Get current hour to start from
         const now = new Date();
         const currentHour = now.getHours();
-        
-        // Get the data slice for the chart
         const dataSlice = saatlikVeri.slice(0, 24);
         
-        // Generate time labels starting from current hour
         const labels = dataSlice.map((_, index) => {
             const displayHour = (currentHour + index) % 24;
             return index === 0 ? 'Şimdi' : `${displayHour.toString().padStart(2, '0')}:00`;
@@ -96,14 +97,52 @@ export default function HavaDurumuDetay({ sehir, weatherData }: HavaDurumuDetayP
             }]
         };
     };
+
     const chartConfig = {
-        backgroundGradientFrom: colors.cardBackground, backgroundGradientTo: colors.cardBackground, decimalPlaces: 0,
+        backgroundGradientFrom: colors.cardBackground, 
+        backgroundGradientTo: colors.cardBackground, 
+        decimalPlaces: 0,
         color: (opacity = 1) => `rgba(${theme === 'dark' ? '255, 255, 255' : '0, 0, 0'}, ${opacity})`,
         labelColor: (opacity = 1) => `rgba(${theme === 'dark' ? '255, 255, 255' : '0, 0, 0'}, ${opacity})`,
-        style: { borderRadius: 16 }, propsForDots: { r: "5", strokeWidth: "2", stroke: "#ffa726" }
+        style: { borderRadius: 16 }, 
+        propsForDots: { r: "5", strokeWidth: "2", stroke: "#ffa726" },
+        // Y ekseni etiketlerini göster
+        formatYLabel: (value: string) => `${value}°`,
+        // Y ekseni çizgilerini göster
+        withVerticalLines: false,
+        withHorizontalLines: true,
+        // Y ekseni için minimum ve maksimum değerleri ayarla
+        fromZero: false,
     };
+
     const chartData = getChartData();
     const totalChartWidth = Math.max(width - 80, chartData.labels.length * DATA_POINT_WIDTH);
+
+    // Y ekseni için sıcaklık değerlerini hesapla
+    const temperatures = chartData.datasets[0]?.data || [];
+    const minTemp = temperatures.length > 0 ? Math.min(...temperatures) : 0;
+    const maxTemp = temperatures.length > 0 ? Math.max(...temperatures) : 30;
+    
+    // ChartConfig'i güncelle - min ve max değerleri ayarla
+    const updatedChartConfig = {
+        ...chartConfig,
+        // Grafik aralığını belirle
+        segments: 4, // 5 etiket için 4 segment
+    };
+
+    // Y ekseni etiketlerini oluştur - gerçek min/max değerleri kullan
+    const generateYAxisLabels = () => {
+        const labels = [];
+        const step = (maxTemp - minTemp) / 4; // 5 etiket için 4 eşit aralık
+        
+        for (let i = 0; i <= 4; i++) {
+            const temp = maxTemp - (i * step); // Yukarıdan aşağıya
+            labels.push(`${Math.round(temp)}°`);
+        }
+        return labels;
+    };
+
+    const yAxisLabels = generateYAxisLabels();
 
     return (
         <View style={styles.container}>
@@ -117,7 +156,7 @@ export default function HavaDurumuDetay({ sehir, weatherData }: HavaDurumuDetayP
                     <Text style={[styles.yuksekDusukSicaklik, { color: colors.text }]}>Y:{convertTemperature(anlikVeri.enYuksek)}° D:{convertTemperature(anlikVeri.enDusuk)}°</Text>
                 </View>
 
-                {/* --- SAATLİK TAHMİN BÖLÜMÜNÜN YENİ VE DOĞRU HALİ --- */}
+                {/* SAATLİK TAHMİN BÖLÜMÜ */}
                 <View style={[styles.card, cardStyle, { backgroundColor: colors.cardBackground, borderColor: colors.borderColor }]}>
                     <Text style={[styles.cardTitle, { color: colors.icon }]}>SAATLİK TAHMİN</Text>
                     <ScrollView 
@@ -131,7 +170,6 @@ export default function HavaDurumuDetay({ sehir, weatherData }: HavaDurumuDetayP
                             const currentHour = now.getHours();
                             const displayHour = (currentHour + index) % 24;
                             const isCurrentHour = index === 0;
-                            // Format the hour as 'HH:00' for display
                             const displayTime = isCurrentHour ? 'Şimdi' : `${displayHour.toString().padStart(2, '0')}:00`;
                             
                             return (
@@ -159,28 +197,53 @@ export default function HavaDurumuDetay({ sehir, weatherData }: HavaDurumuDetayP
                     </ScrollView>
                 </View>
 
-                {/* Modal ve diğer kısımlar aynı kalabilir... */}
+                {/* GRAFİK MODAL - Y EKSENİ SABİTLENMİŞ */}
                 <Modal visible={modalVisible} animationType="slide" transparent onRequestClose={() => setModalVisible(false)}>
                     <View style={styles.modalOverlay}>
                         <View style={[styles.modalContent, { backgroundColor: colors.cardBackground }]}>
                             <Text style={[styles.modalTitle, { color: colors.text }]}>Sonraki Saatler için Sıcaklık</Text>
-                            <ScrollView
-                                horizontal
-                                showsHorizontalScrollIndicator={false}
-                                contentContainerStyle={{ paddingHorizontal: CHART_LEFT_PADDING }}
-                                onScroll={e => {
-                                    scrollX.current = e.nativeEvent.contentOffset.x;
-                                }}
-                                scrollEventThrottle={16}
-                            >
-                                {chartData.labels.length > 0 && (
-                                    <LineChart
-                                        data={chartData} width={totalChartWidth} height={220} chartConfig={chartConfig} bezier
-                                        style={styles.chartStyle} yAxisSuffix="°" fromZero
-                                        onDataPointClick={handleDataPointClick}
-                                    />
-                                )}
-                            </ScrollView>
+                            
+                            {/* Y Ekseni Sabitlenmiş Grafik Konteyner */}
+                            <View style={styles.chartContainer}>
+                                {/* Sabit Y Ekseni */}
+                                <View style={[styles.yAxisContainer, { width: Y_AXIS_WIDTH }]}>
+                                    {yAxisLabels.map((label, index) => (
+                                        <View key={index} style={styles.yAxisLabelContainer}>
+                                            <Text style={[styles.yAxisLabel, { color: colors.text }]}>{label}</Text>
+                                        </View>
+                                    ))}
+                                </View>
+                                
+                                {/* Kaydırılabilir Grafik Alanı */}
+                                <ScrollView
+                                    horizontal
+                                    showsHorizontalScrollIndicator={false}
+                                    contentContainerStyle={{ paddingHorizontal: 0 }}
+                                    onScroll={e => {
+                                        scrollX.current = e.nativeEvent.contentOffset.x;
+                                    }}
+                                    scrollEventThrottle={16}
+                                    style={styles.chartScrollView}
+                                >
+                                    {chartData.labels.length > 0 && (
+                                        <LineChart
+                                            data={chartData} 
+                                            width={totalChartWidth} 
+                                            height={250} 
+                                            chartConfig={updatedChartConfig} 
+                                            bezier
+                                            style={styles.chartStyle} 
+                                            yAxisSuffix=""
+                                            fromZero={false}
+                                            segments={4}
+                                            onDataPointClick={handleDataPointClick}
+                                            withVerticalLabels={true}
+                                            withHorizontalLabels={false}
+                                        />
+                                    )}
+                                </ScrollView>
+                            </View>
+                            
                             {tooltipData && (
                                 <Animated.View style={[
                                     styles.tooltipContainer,
@@ -194,6 +257,7 @@ export default function HavaDurumuDetay({ sehir, weatherData }: HavaDurumuDetayP
                                     <Text style={styles.tooltipText}>{Math.round(tooltipData.value)}°</Text>
                                 </Animated.View>
                             )}
+                            
                             <Pressable style={[styles.closeButton, { backgroundColor: colors.background }]} onPress={() => {
                                 setTooltipData(null);
                                 setModalVisible(false);
@@ -204,6 +268,7 @@ export default function HavaDurumuDetay({ sehir, weatherData }: HavaDurumuDetayP
                     </View>
                 </Modal>
 
+                {/* GÜNLÜK TAHMİN */}
                 <View style={[styles.card, cardStyle, { backgroundColor: colors.cardBackground, borderColor: colors.borderColor }]}>
                     <Text style={[styles.cardTitle, { color: colors.icon }]}>GÜNLÜK TAHMİN</Text>
                     {gunlukVeri.map((item, index) => (
@@ -221,6 +286,7 @@ export default function HavaDurumuDetay({ sehir, weatherData }: HavaDurumuDetayP
                     ))}
                 </View>
 
+                {/* DETAY KARTLARI */}
                 <View style={styles.detayKartlarGrid}>
                     {detaylar.map((item, index) => (
                         <View key={index} style={styles.detayKartKapsayici}>
@@ -274,6 +340,34 @@ const styles = StyleSheet.create({
     modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center' },
     modalContent: { borderRadius: 20, paddingVertical: 24, paddingHorizontal: MODAL_HORIZONTAL_PADDING, alignItems: 'center', width: '90%', shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.25, shadowRadius: 4, elevation: 5 },
     modalTitle: { fontSize: 18, fontWeight: 'bold', marginBottom: 10 },
+    
+    // YENİ STILLER - Y EKSENİ SABİTLEME İÇİN
+    chartContainer: {
+        flexDirection: 'row',
+        alignItems: 'stretch',
+        height: 250,
+        width: '100%',
+    },
+    yAxisContainer: {
+        justifyContent: 'space-between',
+        alignItems: 'flex-end',
+        paddingRight: 4,
+        paddingTop: 20,
+        paddingBottom: 50,
+    },
+    yAxisLabelContainer: {
+        flex: 1,
+        justifyContent: 'center',
+    },
+    yAxisLabel: {
+        fontSize: 12,
+        fontWeight: '500',
+        textAlign: 'right',
+    },
+    chartScrollView: {
+        flex: 1,
+    },
+    
     chartStyle: { marginVertical: 16, borderRadius: 16 },
     closeButton: { marginTop: 20, borderRadius: 20, paddingVertical: 12, paddingHorizontal: 30, elevation: 2 },
     closeButtonText: { fontSize: 16, fontWeight: '600' },
