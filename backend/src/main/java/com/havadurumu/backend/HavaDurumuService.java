@@ -53,17 +53,25 @@ public class HavaDurumuService {
 
             OffsetDateTime now = OffsetDateTime.now(ZoneOffset.UTC);
 
+            // "Şimdi" için en yakın ileri saatlik tahmini bul
             JsonNode enYakinSaatlikNode = null;
-            for (JsonNode node : hourlyTimeline) {
+            int startIndex = -1; // ✅ YENİ: Başlangıç indeksini saklamak için değişken
+
+            for (int i = 0; i < hourlyTimeline.size(); i++) {
+                JsonNode node = hourlyTimeline.get(i);
                 OffsetDateTime tahminZamani = OffsetDateTime.parse(node.path("time").asText());
                 if (!tahminZamani.isBefore(now)) {
                     enYakinSaatlikNode = node;
+                    startIndex = i; // ✅ YENİ: Doğru başlangıç indeksini bulduk ve kaydettik
                     break;
                 }
             }
+
             if (enYakinSaatlikNode == null) {
                 enYakinSaatlikNode = hourlyTimeline.get(0);
+                startIndex = 0; // fallback
             }
+            
             JsonNode anlikVeriNode = enYakinSaatlikNode.path("values");
             JsonNode gunlukOzetNode = dailyTimeline.get(0).path("values");
 
@@ -79,8 +87,10 @@ public class HavaDurumuService {
             anlikDto.setBasinc(anlikVeriNode.path("pressureSurfaceLevel").asDouble());
             anlikDto.setDurumKodu(anlikVeriNode.path("weatherCode").asInt());
 
+            // --- ✅ GÜNCELLENMİŞ SAATLİK TAHMİN DÖNGÜSÜ ---
             List<SaatlikTahminDto> saatlikListe = new ArrayList<>();
-            for (int i = 0; i < 24 && i < hourlyTimeline.size(); i++) {
+            // Döngü artık '0' yerine, bulduğumuz 'startIndex'den başlıyor.
+            for (int i = startIndex; i < startIndex + 24 && i < hourlyTimeline.size(); i++) {
                 JsonNode saatlikNode = hourlyTimeline.get(i);
                 if (saatlikNode == null) break;
 
@@ -91,8 +101,6 @@ public class HavaDurumuService {
                 saatlikDto.setSaat(odt.format(DateTimeFormatter.ofPattern("HH:00")));
                 saatlikDto.setSicaklik(valuesNode.path("temperature").asDouble());
                 saatlikDto.setDurumKodu(valuesNode.path("weatherCode").asInt());
-                
-                // YENİ EKLENEN SATIR: JSON'dan 'humidity' değerini okuyup DTO'ya ekliyoruz.
                 saatlikDto.setNem(valuesNode.path("humidity").asDouble());
                 
                 saatlikListe.add(saatlikDto);
