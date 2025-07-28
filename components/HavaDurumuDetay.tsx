@@ -29,6 +29,9 @@ export default function HavaDurumuDetay({ sehir, weatherData }: HavaDurumuDetayP
     const tooltipAnim = React.useRef(new Animated.Value(0)).current;
     const scrollX = React.useRef(0);
 
+    // 1. State ekle
+    const [showOnlyAI, setShowOnlyAI] = React.useState(false);
+
     if (!weatherData || !sehir || !weatherData.anlikHavaDurumu) return null;
 
     const anlikVeri = weatherData.anlikHavaDurumu;
@@ -76,18 +79,40 @@ export default function HavaDurumuDetay({ sehir, weatherData }: HavaDurumuDetayP
     const cardStyle = theme === 'light' ? styles.cardShadow : {};
     const DATA_POINT_WIDTH = 60;
 
+    // 2. getChartData fonksiyonunu güncelle
     const getChartData = () => {
         if (saatlikVeri.length === 0) return { labels: [], datasets: [{ data: [] }] };
-        
         const now = new Date();
         const currentHour = now.getHours();
         const dataSlice = saatlikVeri.slice(0, 24);
-        
-        const labels = dataSlice.map((_, index) => {
+        let labels = dataSlice.map((_, index) => {
             const displayHour = (currentHour + index) % 24;
             return index === 0 ? 'Şimdi' : `${displayHour.toString().padStart(2, '0')}:00`;
         });
-        
+        // Eğer sadece YZ tahmini gösterilecekse, sadece 3 kırmızı 0 derecelik değer göster
+        if (showOnlyAI) {
+            // Son 24 saatlik tahminin son saatini bul
+            let lastHour = 0;
+            if (dataSlice.length > 0) {
+                const lastSaatStr = dataSlice[dataSlice.length - 1].saat; // ör: '08:00'
+                const match = lastSaatStr.match(/(\d{1,2}):/);
+                if (match) {
+                    lastHour = parseInt(match[1], 10);
+                }
+            }
+            // Sonraki 3 saati oluştur (her birine 4,5,6 ekle)
+            const aiHours = [4, 5, 6].map(i => ((lastHour + i) % 24));
+            const aiLabels = aiHours.map(h => `${h.toString().padStart(2, '0')}:00`);
+            return {
+                labels: aiLabels,
+                datasets: [{
+                    data: [0, 0, 0],
+                    color: (opacity = 1) => `rgba(255,0,0,${opacity})`,
+                    strokeWidth: 3
+                }]
+            };
+        }
+        // Normalde sadece 24 saatlik tahmin göster
         return {
             labels: labels,
             datasets: [{
@@ -239,6 +264,12 @@ export default function HavaDurumuDetay({ sehir, weatherData }: HavaDurumuDetayP
                                             onDataPointClick={handleDataPointClick}
                                             withVerticalLabels={true}
                                             withHorizontalLabels={false}
+                                            getDotColor={(dataPoint, dataPointIndex) => {
+                                                if (showOnlyAI) {
+                                                    return 'red';
+                                                }
+                                                return 'rgba(135, 206, 250, 1)';
+                                            }}
                                         />
                                     )}
                                 </ScrollView>
@@ -258,11 +289,15 @@ export default function HavaDurumuDetay({ sehir, weatherData }: HavaDurumuDetayP
                                 </Animated.View>
                             )}
                             
-                            <Pressable style={[styles.closeButton, { backgroundColor: colors.background }]} onPress={() => {
+                            <Pressable style={[styles.closeButton, { backgroundColor: colors.background, marginRight: 10 }]} onPress={() => {
                                 setTooltipData(null);
                                 setModalVisible(false);
+                                setShowOnlyAI(false);
                             }}>
                                 <Text style={[styles.closeButtonText, { color: colors.text }]}>Kapat</Text>
+                            </Pressable>
+                            <Pressable style={[styles.closeButton, { backgroundColor: '#e74c3c' }]} onPress={() => setShowOnlyAI(true)}>
+                                <Text style={[styles.closeButtonText, { color: 'white' }]}>YZ ile Tahmin Et</Text>
                             </Pressable>
                         </View>
                     </View>
