@@ -109,7 +109,7 @@ public class HavaDurumuService {
                 SaatlikTahminDto saatlikDto = new SaatlikTahminDto();
                 OffsetDateTime odt = OffsetDateTime.parse(saatlikNode.path("time").asText());
                 
-                saatlikDto.setSaat(odt.format(DateTimeFormatter.ofPattern("HH:00")));
+saatlikDto.setSaat(odt.withOffsetSameInstant(ZoneOffset.ofHours(3)).format(DateTimeFormatter.ofPattern("HH:00")));
                 saatlikDto.setSicaklik(valuesNode.path("temperature").asDouble());
                 saatlikDto.setDurumKodu(valuesNode.path("weatherCode").asInt());
                 saatlikDto.setNem(valuesNode.path("humidity").asDouble());
@@ -121,7 +121,7 @@ public class HavaDurumuService {
             for (JsonNode gunlukNode : dailyTimeline) {
                 GunlukTahminDto gunlukDto = new GunlukTahminDto();
                 OffsetDateTime odt = OffsetDateTime.parse(gunlukNode.path("time").asText());
-                gunlukDto.setGun(odt.getDayOfWeek().getDisplayName(TextStyle.FULL, new Locale("tr", "TR")));
+gunlukDto.setGun(odt.withOffsetSameInstant(ZoneOffset.ofHours(3)).getDayOfWeek().getDisplayName(TextStyle.FULL, new Locale("tr", "TR")));
                 gunlukDto.setEnDusuk(gunlukNode.path("values").path("temperatureMin").asDouble());
                 gunlukDto.setEnYuksek(gunlukNode.path("values").path("temperatureMax").asDouble());
                 gunlukDto.setDurumKodu(gunlukNode.path("values").path("weatherCodeMax").asInt());
