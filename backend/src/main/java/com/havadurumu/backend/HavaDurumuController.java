@@ -5,6 +5,7 @@ import com.havadurumu.backend.dto.GunlukTahminDto;
 import com.havadurumu.backend.dto.HavaDurumuCevapDto;
 import com.havadurumu.backend.dto.SaatlikTahminDto;
 import com.havadurumu.backend.dto.TahminCiktisi;
+import com.havadurumu.backend.dto.ProphetGunlukTahminDto; // YENİ DTO
 import com.havadurumu.backend.HavaDurumuService;
 import com.havadurumu.backend.service.YapayZekaTahminService;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -14,6 +15,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.TextStyle;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
@@ -46,11 +48,22 @@ public class HavaDurumuController {
         }
 
         System.out.println("Tomorrow.io'dan " + cevap.getSaatlikTahmin().size() + " saatlik veri alındı");
+        System.out.println("Tomorrow.io'dan " + cevap.getGunlukTahmin().size() + " günlük veri alındı");
 
-        // 2) Saatlik tahmin listesi
+        // 2) SAATLİK TAHMİN - Prophet ile ek 3 saat ekle
+        processSaatlikTahmin(cevap);
+
+        // 3) GÜNLÜk TAHMİN - Prophet ile ek 3 gün ekle
+        processGunlukTahmin(cevap);
+
+        System.out.println("=== HAVA DURUMU İSTEĞİ TAMAMLANDI ===");
+        return cevap;
+    }
+
+    private void processSaatlikTahmin(HavaDurumuCevapDto cevap) {
         List<SaatlikTahminDto> saatlik = cevap.getSaatlikTahmin();
         if (saatlik != null && !saatlik.isEmpty()) {
-            // 3) Önce ISO time'a göre sırala ve son 24 elemanı al
+            // ISO time'a göre sırala ve son 24 elemanı al
             List<SaatlikTahminDto> sorted = saatlik.stream()
                     .sorted(Comparator.comparing(SaatlikTahminDto::getIsoTime))
                     .collect(Collectors.toList());
@@ -59,36 +72,26 @@ public class HavaDurumuController {
 
             System.out.println("Son 24 saat verisi hazırlandı: " + last24.size() + " kayıt");
 
-            // 4) AI'ya göndermek için GirdiVerisi listesi oluştur
+            // AI'ya göndermek için GirdiVerisi listesi oluştur
             List<GirdiVerisi> aiInput = last24.stream()
                     .map(d -> new GirdiVerisi(d.getIsoTime(), d.getNem(), d.getDurumKodu()))
                     .collect(Collectors.toList());
 
-            System.out.println("AI'ya gönderilecek veri:");
-            for (int i = 0; i < Math.min(3, aiInput.size()); i++) {
-                GirdiVerisi g = aiInput.get(i);
-                System.out.println("  " + g.getDs() + " | Nem: " + g.getNem() + " | Kod: " + g.getDurumKodu());
-            }
-            System.out.println("  ... toplam " + aiInput.size() + " kayıt");
+            System.out.println("AI'ya gönderilecek saatlik veri: " + aiInput.size() + " kayıt");
 
-            // 5) Prophet ile +3 saatlik tahmini al
+            // Prophet ile +3 saatlik tahmini al
             List<TahminCiktisi> aiTahmin;
             try {
-                System.out.println("AI servisine istek gönderiliyor...");
+                System.out.println("AI saatlik servisine istek gönderiliyor...");
                 aiTahmin = yapayZekaTahminService.getYapayZekaTahmini(aiInput);
-                System.out.println("AI servisinden " + aiTahmin.size() + " tahmin alındı");
-                
-                for (TahminCiktisi t : aiTahmin) {
-                    System.out.println("  AI Tahmin: " + t.getDs() + " | Sıcaklık: " + t.getYhat());
-                }
-                
+                System.out.println("AI servisinden " + aiTahmin.size() + " saatlik tahmin alındı");
             } catch (Exception ex) {
                 System.err.println("AI saatlik tahmin çağrısında hata: " + ex.getMessage());
                 ex.printStackTrace();
                 aiTahmin = Collections.emptyList();
             }
 
-            // 6) Gelen +3 saati orijinal saatlik listesine ekle
+            // Gelen +3 saati orijinal saatlik listesine ekle
             int eklenenSayisi = 0;
             for (TahminCiktisi t : aiTahmin) {
                 try {
@@ -103,15 +106,47 @@ public class HavaDurumuController {
                     cevap.getSaatlikTahmin().add(extra);
                     eklenenSayisi++;
                 } catch (Exception e) {
-                    System.err.println("AI tahmin eklenirken hata: " + e.getMessage());
+                    System.err.println("AI saatlik tahmin eklenirken hata: " + e.getMessage());
                 }
             }
             
-            System.out.println(eklenenSayisi + " AI tahmini başarıyla eklendi");
+            System.out.println(eklenenSayisi + " AI saatlik tahmini başarıyla eklendi");
             System.out.println("Final saatlik tahmin sayısı: " + cevap.getSaatlikTahmin().size());
         }
+    }
 
-        System.out.println("=== HAVA DURUMU İSTEĞİ TAMAMLANDI ===");
-        return cevap;
+    private void processGunlukTahmin(HavaDurumuCevapDto cevap) {
+        System.out.println("=== GÜNLÜk TAHMİN İŞLEME BAŞLADI ===");
+        
+        try {
+            // Prophet'tan ek 3 günlük tahmin al
+            System.out.println("AI günlük servisine istek gönderiliyor...");
+            List<ProphetGunlukTahminDto> aiGunlukTahmin = yapayZekaTahminService.getGunlukYapayZekaTahmini();
+            System.out.println("AI servisinden " + aiGunlukTahmin.size() + " günlük tahmin alındı");
+            
+            // ProphetGunlukTahminDto'yu GunlukTahminDto'ya çevir ve ekle
+            for (ProphetGunlukTahminDto prophetGun : aiGunlukTahmin) {
+                GunlukTahminDto gunlukDto = new GunlukTahminDto();
+                gunlukDto.setGun(prophetGun.getGun());
+                gunlukDto.setEnDusuk(prophetGun.getEnDusuk());
+                gunlukDto.setEnYuksek(prophetGun.getEnYuksek());
+                gunlukDto.setDurumKodu(prophetGun.getDurumKodu());
+                gunlukDto.setAiTahmini(true); // AI tahmini olduğunu işaretle
+                
+                cevap.getGunlukTahmin().add(gunlukDto);
+                System.out.println("AI günlük tahmin eklendi: " + prophetGun.getGun() + 
+                                 " | Min: " + prophetGun.getEnDusuk() + 
+                                 " | Max: " + prophetGun.getEnYuksek());
+            }
+            
+            System.out.println("Toplam " + aiGunlukTahmin.size() + " AI günlük tahmini başarıyla eklendi");
+            System.out.println("Final günlük tahmin sayısı: " + cevap.getGunlukTahmin().size());
+            
+        } catch (Exception ex) {
+            System.err.println("AI günlük tahmin çağrısında hata: " + ex.getMessage());
+            ex.printStackTrace();
+        }
+        
+        System.out.println("=== GÜNLÜk TAHMİN İŞLEME TAMAMLANDI ===");
     }
 }

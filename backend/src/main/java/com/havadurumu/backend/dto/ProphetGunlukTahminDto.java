@@ -1,9 +1,9 @@
-// Dosya: src/main/java/com/havadurumu/backend/dto/GunlukTahminDto.java
+// Dosya: src/main/java/com/havadurumu/backend/dto/ProphetGunlukTahminDto.java
 package com.havadurumu.backend.dto;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 
-public class GunlukTahminDto {
+public class ProphetGunlukTahminDto {
     
     @JsonProperty("gun")
     private String gun;
@@ -16,31 +16,17 @@ public class GunlukTahminDto {
     
     @JsonProperty("durumKodu")
     private int durumKodu;
-    
-    // YENİ: AI tahmini olup olmadığını belirtmek için
-    @JsonProperty("aiTahmini")
-    private boolean aiTahmini = false;
 
     // Default constructor
-    public GunlukTahminDto() {
+    public ProphetGunlukTahminDto() {
     }
 
     // Constructor with parameters
-    public GunlukTahminDto(String gun, double enDusuk, double enYuksek, int durumKodu) {
+    public ProphetGunlukTahminDto(String gun, double enDusuk, double enYuksek, int durumKodu) {
         this.gun = gun;
         this.enDusuk = enDusuk;
         this.enYuksek = enYuksek;
         this.durumKodu = durumKodu;
-        this.aiTahmini = false;
-    }
-
-    // Constructor with AI flag
-    public GunlukTahminDto(String gun, double enDusuk, double enYuksek, int durumKodu, boolean aiTahmini) {
-        this.gun = gun;
-        this.enDusuk = enDusuk;
-        this.enYuksek = enYuksek;
-        this.durumKodu = durumKodu;
-        this.aiTahmini = aiTahmini;
     }
 
     // Getters and Setters
@@ -76,22 +62,13 @@ public class GunlukTahminDto {
         this.durumKodu = durumKodu;
     }
 
-    public boolean isAiTahmini() {
-        return aiTahmini;
-    }
-
-    public void setAiTahmini(boolean aiTahmini) {
-        this.aiTahmini = aiTahmini;
-    }
-
     @Override
     public String toString() {
-        return "GunlukTahminDto{" +
+        return "ProphetGunlukTahminDto{" +
                 "gun='" + gun + '\'' +
                 ", enDusuk=" + enDusuk +
                 ", enYuksek=" + enYuksek +
                 ", durumKodu=" + durumKodu +
-                ", aiTahmini=" + aiTahmini +
                 '}';
     }
 }
