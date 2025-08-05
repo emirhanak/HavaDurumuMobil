@@ -1,165 +1,132 @@
+// Dosya: src/main/java/com/havadurumu/backend/service/HavaDurumuService.java
 package com.havadurumu.backend;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.havadurumu.backend.dto.AnlikHavaDurumuDto;
-import com.havadurumu.backend.dto.GunlukTahminDto;
-import com.havadurumu.backend.dto.HavaDurumuCevapDto;
-import com.havadurumu.backend.dto.SaatlikTahminDto;
-import org.springframework.beans.factory.annotation.Autowired;
+import com.havadurumu.backend.dto.*;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
 
-import java.time.OffsetDateTime;
+import java.time.*;
 import java.time.format.DateTimeFormatter;
 import java.time.format.TextStyle;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Locale;
-import java.time.ZoneOffset;
+import java.util.*;
 
 @Service
 public class HavaDurumuService {
 
-    @Autowired
-    private RestTemplate restTemplate;
+    private final RestTemplate restTemplate;
+    private final String apiKey;
+    private static final String API_URL = "https://api.tomorrow.io/v4/weather/forecast";
 
-    @Value("${tomorrow.api.key}")
-    private String apiKey;
+    public HavaDurumuService(RestTemplate restTemplate,
+                             @Value("${tomorrow.api.key}") String apiKey) {
+        this.restTemplate = restTemplate;
+        this.apiKey       = apiKey;
+    }
 
-    private final String apiUrl = "https://api.tomorrow.io/v4/weather/forecast";
-
-    // Önbelleği (cache) test süresince kapalı tutuyoruz. Proje bitince açabilirsin.
-    // @Cacheable("weatherCache")
     public HavaDurumuCevapDto getWeather(String lat, String lon) {
-        String fullUrl = UriComponentsBuilder.fromUriString(apiUrl)
-                .queryParam("location", lat + "," + lon)
-                .queryParam("apikey", apiKey)
-                .queryParam("timesteps", "1h,1d")
-                .queryParam("units", "metric")
-                .queryParam("language", "tr")
-                .toUriString();
+        // İstanbul saati ile 24 saatlik pencere
+        ZoneId ist = ZoneId.of("Europe/Istanbul");
+        ZonedDateTime nowIst = ZonedDateTime.now(ist)
+            .withMinute(0).withSecond(0).withNano(0);
+        ZonedDateTime endIst = nowIst.plusHours(23);
+
+        String startUtc = nowIst.withZoneSameInstant(ZoneOffset.UTC)
+                               .format(DateTimeFormatter.ISO_INSTANT);
+        String endUtc   = endIst.withZoneSameInstant(ZoneOffset.UTC)
+                               .format(DateTimeFormatter.ISO_INSTANT);
+
+        String url = UriComponentsBuilder.fromHttpUrl(API_URL)
+            .queryParam("location", lat + "," + lon)
+            .queryParam("apikey",   apiKey)
+            .queryParam("timesteps","1h,1d")
+            .queryParam("units",    "metric")
+            .queryParam("language", "tr")
+            .queryParam("startTime", startUtc)
+            .queryParam("endTime",   endUtc)
+            .toUriString();
 
         try {
-            String jsonResponse = restTemplate.getForObject(fullUrl, String.class);
-            ObjectMapper objectMapper = new ObjectMapper();
-            JsonNode rootNode = objectMapper.readTree(jsonResponse);
+            String body = restTemplate.getForObject(url, String.class);
+            ObjectMapper om = new ObjectMapper();
+            JsonNode root = om.readTree(body);
 
-            JsonNode hourlyTimeline = rootNode.path("timelines").path("hourly");
-            JsonNode dailyTimeline = rootNode.path("timelines").path("daily");
+            JsonNode hourly = root.path("timelines").path("hourly");
+            JsonNode daily  = root.path("timelines").path("daily");
 
-            // --- GÜNCELLENMİŞ ZAMAN YÖNETİMİ ---
-            // Türkiye saat dilimini al
-            ZoneOffset turkeyOffset = ZoneOffset.of("+03:00");
-            // Şu anki zamanı Türkiye saatine göre al
-            OffsetDateTime now = OffsetDateTime.now(turkeyOffset);
-            // Saati 00:00 formatına yuvarla (örn: 10:12 -> 10:00)
-            now = now.withMinute(0).withSecond(0).withNano(0);
+            // — Anlık veri —
+            JsonNode nowVals   = hourly.get(0).path("values");
+            JsonNode todayVals = daily .get(0).path("values");
+            AnlikHavaDurumuDto anlik = new AnlikHavaDurumuDto();
+            anlik.setSicaklik(   nowVals.path("temperature").asDouble());
+            anlik.setEnYuksek(   todayVals.path("temperatureMax").asDouble());
+            anlik.setEnDusuk(    todayVals.path("temperatureMin").asDouble());
+            anlik.setDurum(      weatherCodeToTurkish(nowVals.path("weatherCode").asInt()));
+            anlik.setHissedilen( nowVals.path("temperatureApparent").asDouble());
+            anlik.setNem(        nowVals.path("humidity").asDouble());
+            anlik.setRuzgarHizi(nowVals.path("windSpeed").asDouble());
+            anlik.setGorusMesafesi(nowVals.path("visibility").asDouble());
+            anlik.setBasinc(     nowVals.path("pressureSurfaceLevel").asDouble());
+            anlik.setDurumKodu(  nowVals.path("weatherCode").asInt());
 
-            int startIndex = -1;
+            // — Saatlik 24h liste —
+            List<SaatlikTahminDto> saatlik = new ArrayList<>();
+            DateTimeFormatter hhFmt = DateTimeFormatter.ofPattern("HH:00");
+            for (JsonNode n : hourly) {
+                JsonNode v = n.path("values");
+                OffsetDateTime odt = OffsetDateTime.parse(n.path("time").asText())
+                    .withOffsetSameInstant(ZoneOffset.ofHours(3));
+                SaatlikTahminDto dto = new SaatlikTahminDto();
+                dto.setSaat(    odt.format(hhFmt));
+                dto.setIsoTime( odt.toLocalDateTime().toString());
+                dto.setSicaklik(v.path("temperature").asDouble());
+                dto.setDurumKodu(v.path("weatherCode").asInt());
+                dto.setNem(     v.path("humidity").asDouble());
+                saatlik.add(dto);
+            }
+            if (saatlik.size() > 24) saatlik = saatlik.subList(0,24);
 
-            // 1. Önce, şu anki saate en yakın tahmini bulalım
-            for (int i = 0; i < hourlyTimeline.size(); i++) {
-                JsonNode node = hourlyTimeline.get(i);
-                OffsetDateTime tahminZamani = OffsetDateTime.parse(node.path("time").asText());
-
-                // Eğer tahminin saati, şu anki saate eşit veya daha büyükse
-                if (!tahminZamani.isBefore(now)) {
-                    startIndex = i;
-                    break;
-                }
+            // — Günlük 1d liste —
+            List<GunlukTahminDto> gunluk = new ArrayList<>();
+            for (JsonNode d : daily) {
+                OffsetDateTime odt = OffsetDateTime.parse(d.path("time").asText())
+                    .withOffsetSameInstant(ZoneOffset.ofHours(3));
+                GunlukTahminDto gd = new GunlukTahminDto();
+                gd.setGun(       odt.getDayOfWeek().getDisplayName(TextStyle.FULL, new Locale("tr","TR")));
+                gd.setEnDusuk(   d.path("values").path("temperatureMin").asDouble());
+                gd.setEnYuksek(  d.path("values").path("temperatureMax").asDouble());
+                gd.setDurumKodu(d.path("values").path("weatherCodeMax").asInt());
+                gunluk.add(gd);
             }
 
-            // Eğer uygun bir başlangıç noktası bulunamadıysa, en sonki tahmini kullan
-            if (startIndex == -1) {
-                startIndex = Math.max(0, hourlyTimeline.size() - 24);
-            }
+            HavaDurumuCevapDto cevap = new HavaDurumuCevapDto();
+            cevap.setAnlikHavaDurumu(anlik);
+            cevap.setSaatlikTahmin(saatlik);
+            cevap.setGunlukTahmin(gunluk);
+            return cevap;
 
-            // Eğer hala bulunamadıysa, listenin başını al (hata durumu için).
-            if (startIndex == -1) {
-                startIndex = 0;
-            }
-
-            // Artık "anlık veri" için ayrı bir mantığa gerek yok,
-            // doğru başlangıç noktasını bulduğumuz için oradan başlayabiliriz.
-            JsonNode anlikVeriNode = hourlyTimeline.get(startIndex).path("values");
-            JsonNode gunlukOzetNode = dailyTimeline.get(0).path("values");
-
-            AnlikHavaDurumuDto anlikDto = new AnlikHavaDurumuDto();
-            anlikDto.setSicaklik(anlikVeriNode.path("temperature").asDouble());
-            anlikDto.setEnYuksek(gunlukOzetNode.path("temperatureMax").asDouble());
-            anlikDto.setEnDusuk(gunlukOzetNode.path("temperatureMin").asDouble());
-            anlikDto.setDurum(weatherCodeToTurkish(anlikVeriNode.path("weatherCode").asInt()));
-            anlikDto.setHissedilen(anlikVeriNode.path("temperatureApparent").asDouble());
-            anlikDto.setNem(anlikVeriNode.path("humidity").asDouble());
-            anlikDto.setRuzgarHizi(anlikVeriNode.path("windSpeed").asDouble());
-            anlikDto.setGorusMesafesi(anlikVeriNode.path("visibility").asDouble());
-            anlikDto.setBasinc(anlikVeriNode.path("pressureSurfaceLevel").asDouble());
-            anlikDto.setDurumKodu(anlikVeriNode.path("weatherCode").asInt());
-
-            List<SaatlikTahminDto> saatlikListe = new ArrayList<>();
-            // Döngü artık doğru 'startIndex'den başlıyor.
-            for (int i = startIndex; i < startIndex + 24 && i < hourlyTimeline.size(); i++) {
-                JsonNode saatlikNode = hourlyTimeline.get(i);
-                if (saatlikNode == null) break;
-
-                JsonNode valuesNode = saatlikNode.path("values");
-                SaatlikTahminDto saatlikDto = new SaatlikTahminDto();
-                OffsetDateTime odt = OffsetDateTime.parse(saatlikNode.path("time").asText());
-                
-saatlikDto.setSaat(odt.withOffsetSameInstant(ZoneOffset.ofHours(3)).format(DateTimeFormatter.ofPattern("HH:00")));
-                saatlikDto.setSicaklik(valuesNode.path("temperature").asDouble());
-                saatlikDto.setDurumKodu(valuesNode.path("weatherCode").asInt());
-                saatlikDto.setNem(valuesNode.path("humidity").asDouble());
-                
-                saatlikListe.add(saatlikDto);
-            }
-
-            List<GunlukTahminDto> gunlukListe = new ArrayList<>();
-            for (JsonNode gunlukNode : dailyTimeline) {
-                GunlukTahminDto gunlukDto = new GunlukTahminDto();
-                OffsetDateTime odt = OffsetDateTime.parse(gunlukNode.path("time").asText());
-gunlukDto.setGun(odt.withOffsetSameInstant(ZoneOffset.ofHours(3)).getDayOfWeek().getDisplayName(TextStyle.FULL, new Locale("tr", "TR")));
-                gunlukDto.setEnDusuk(gunlukNode.path("values").path("temperatureMin").asDouble());
-                gunlukDto.setEnYuksek(gunlukNode.path("values").path("temperatureMax").asDouble());
-                gunlukDto.setDurumKodu(gunlukNode.path("values").path("weatherCodeMax").asInt());
-                gunlukListe.add(gunlukDto);
-            }
-            
-            HavaDurumuCevapDto cevapDto = new HavaDurumuCevapDto();
-            cevapDto.setAnlikHavaDurumu(anlikDto);
-            cevapDto.setSaatlikTahmin(saatlikListe);
-            cevapDto.setGunlukTahmin(gunlukListe);
-
-            return cevapDto;
-
-        } catch (Exception e) {
-            System.err.println("API isteği sırasında hata oluştu: " + e.getMessage());
-            e.printStackTrace(); // Hatanın detayını görmek için
+        } catch (Exception ex) {
+            System.err.println("API isteğinde hata: " + ex.getMessage());
             return null;
         }
     }
-    
+
     private String weatherCodeToTurkish(int code) {
         return switch (code) {
             case 1000 -> "Açık";
             case 1100 -> "Genellikle Açık";
-            case 1101, 1104 -> "Parçalı Bulutlu";
-            case 1001, 1102, 1103 -> "Çok Bulutlu";
-            case 2000, 2100 -> "Sisli";
-            case 4001 -> "Çisenti";
-            case 4000, 4200 -> "Hafif Yağmurlu";
+            case 1101,1104 -> "Parçalı Bulutlu";
+            case 1001,1102,1103 -> "Çok Bulutlu";
+            case 2000,2100 -> "Sisli";
+            case 4000,4200 -> "Hafif Yağmurlu";
             case 4201 -> "Şiddetli Yağmur";
-            case 5001 -> "Hafif Kar Yağışlı";
-            case 5000, 5100 -> "Kar Yağışlı";
-            case 5101 -> "Yoğun Kar Yağışı";
-            case 6000 -> "Hafif Dolu";
-            case 6001, 6200, 6201 -> "Dolu";
-            case 7101, 7102, 7000 -> "Sulu Kar";
+            case 5000,5100 -> "Kar";
+            case 6000,6200,6201 -> "Dolu";
             case 8000 -> "Gök Gürültülü Fırtına";
-            default -> "Bilinmeyen Durum";
+            default -> "Bilinmeyen";
         };
     }
 }
