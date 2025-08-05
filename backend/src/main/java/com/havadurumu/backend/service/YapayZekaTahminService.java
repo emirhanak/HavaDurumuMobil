@@ -26,17 +26,29 @@ public class YapayZekaTahminService {
         this.objectMapper = new ObjectMapper();
     }
 
-    public List<TahminCiktisi> getYapayZekaTahmini(List<GirdiVerisi> sonSaatlerinVerisi) throws Exception {
-        String json = objectMapper.writeValueAsString(sonSaatlerinVerisi);
-        HttpRequest req = HttpRequest.newBuilder()
-            .uri(URI.create(PYTHON_API_URL_SAATLIK))
-            .header("Content-Type","application/json")
-            .POST(HttpRequest.BodyPublishers.ofString(json))
-            .build();
-        HttpResponse<String> resp = httpClient.send(req, HttpResponse.BodyHandlers.ofString());
-        if (resp.statusCode() != 200) throw new RuntimeException("S saatlik AI hata "+resp.statusCode());
-        return objectMapper.readValue(resp.body(), new TypeReference<>(){});
+   public List<TahminCiktisi> getYapayZekaTahmini(List<GirdiVerisi> sonSaatlerinVerisi) {
+    try {
+        String jsonBody = objectMapper.writeValueAsString(sonSaatlerinVerisi);
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(PYTHON_API_URL_SAATLIK))
+                .header("Content-Type", "application/json")
+                .POST(HttpRequest.BodyPublishers.ofString(jsonBody))
+                .build();
+
+        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+        if (response.statusCode() == 200) {
+            return objectMapper.readValue(response.body(), new TypeReference<List<TahminCiktisi>>() {});
+        } else {
+            // Hata kodu ve body’yi logla
+            System.err.println("AI SAATLİK servisinden hatalı kod: " + response.statusCode());
+            System.err.println("AI SAATLİK servisinden gelen body: " + response.body());
+            return List.of();
+        }
+    } catch (Exception e) {
+        throw new RuntimeException("S saatlik AI hata " + e.getMessage(), e);
     }
+}
+
 
     public List<TahminCiktisi> getGunlukYapayZekaTahmini(List<GirdiVerisi> sonGunlerinVerisi) throws Exception {
         String json = objectMapper.writeValueAsString(sonGunlerinVerisi);

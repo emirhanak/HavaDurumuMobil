@@ -9,19 +9,25 @@ public class GirdiVerisi {
     @JsonProperty("nem")
     private double nem;
 
+    // Python GirdiVerisi modeli `hava_kodu` bekliyor:
     @JsonProperty("hava_kodu")
-    private int havaKodu;
+    private int durumKodu;
 
-    public GirdiVerisi() {}
-    public GirdiVerisi(String ds, double nem, int havaKodu) {
-        this.ds      = ds;
-        this.nem     = nem;
-        this.havaKodu= havaKodu;
+    public GirdiVerisi() { }
+
+    public GirdiVerisi(String ds, double nem, int durumKodu) {
+        this.ds = ds;
+        this.nem = nem;
+        this.durumKodu = durumKodu;
     }
-    public String getDs()             { return ds; }
-    public void setDs(String ds)      { this.ds = ds; }
-    public double getNem()            { return nem; }
-    public void setNem(double nem)    { this.nem = nem; }
-    public int getHavaKodu()          { return havaKodu; }
-    public void setHavaKodu(int k)    { this.havaKodu = k; }
+
+    public String getDs() { return ds; }
+    public void setDs(String ds) { this.ds = ds; }
+
+    public double getNem() { return nem; }
+    public void setNem(double nem) { this.nem = nem; }
+
+    // JSON’da `hava_kodu` olarak çıkacak:
+    public int getDurumKodu() { return durumKodu; }
+    public void setDurumKodu(int durumKodu) { this.durumKodu = durumKodu; }
 }
