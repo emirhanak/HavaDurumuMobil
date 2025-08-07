@@ -1,33 +1,27 @@
 package com.havadurumu.backend.dto;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
-
 public class GirdiVerisi {
-    @JsonProperty("ds")
     private String ds;
-
-    @JsonProperty("nem")
+    private double sicaklik;
     private double nem;
+    private int hava_kodu;
 
-    // Python GirdiVerisi modeli `hava_kodu` bekliyor:
-    @JsonProperty("hava_kodu")
-    private int durumKodu;
+    public GirdiVerisi() {}
 
-    public GirdiVerisi() { }
-
-    public GirdiVerisi(String ds, double nem, int durumKodu) {
+    public GirdiVerisi(String ds, double sicaklik, double nem, int hava_kodu) {
         this.ds = ds;
+        this.sicaklik = sicaklik;
         this.nem = nem;
-        this.durumKodu = durumKodu;
+        this.hava_kodu = hava_kodu;
     }
 
+    // Getters ve Setters...
     public String getDs() { return ds; }
     public void setDs(String ds) { this.ds = ds; }
-
+    public double getSicaklik() { return sicaklik; }
+    public void setSicaklik(double sicaklik) { this.sicaklik = sicaklik; }
     public double getNem() { return nem; }
     public void setNem(double nem) { this.nem = nem; }
-
-    // JSON’da `hava_kodu` olarak çıkacak:
-    public int getDurumKodu() { return durumKodu; }
-    public void setDurumKodu(int durumKodu) { this.durumKodu = durumKodu; }
+    public int getHava_kodu() { return hava_kodu; }
+    public void setHava_kodu(int hava_kodu) { this.hava_kodu = hava_kodu; }
 }
