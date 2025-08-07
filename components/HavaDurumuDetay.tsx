@@ -2,12 +2,12 @@ import { LineChart } from "react-native-chart-kit";
 import React from 'react';
 import { View, Text, StyleSheet, ScrollView, Dimensions, TouchableOpacity, Modal, Animated, Pressable } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Cloud, Thermometer, Droplets, Wind, Eye, Sun, CloudRain } from 'lucide-react-native';
+import { Cloud, Thermometer, Droplets, Wind, Eye, Sun, CloudRain, X, CheckCircle } from 'lucide-react-native';
 import { useSettings } from '@/context/SettingsContext';
 import WeatherAnimation from './WeatherAnimation';
 import { LineChartData } from "react-native-chart-kit/dist/line-chart/LineChart";
 
-// --- Interface Tanımlamaları (GÜNCELLENDİ) ---
+// --- Arayüz Tanımlamaları ---
 interface Sehir { id: string; ad: string; enlem: number; boylam: number; sicaklik: number; }
 interface AnlikHavaDurumu { sicaklik: number; durum: string; enYuksek: number; enDusuk: number; hissedilen: number; nem: number; ruzgarHizi: number; gorusMesafesi: number; basinc: number; durumKodu: number; }
 interface SaatlikTahmin {
@@ -31,12 +31,13 @@ export default function HavaDurumuDetay({ sehir, weatherData }: HavaDurumuDetayP
     const { unit, colors, theme } = useSettings();
 
     const [modalVisible, setModalVisible] = React.useState(false);
-    const [selectedHourIndex, setSelectedHourIndex] = React.useState(0);
+    const [loadingModalVisible, setLoadingModalVisible] = React.useState(false);
     const [tooltipData, setTooltipData] = React.useState<{ x: number, y: number, value: number, index: number } | null>(null);
     const tooltipAnim = React.useRef(new Animated.Value(0)).current;
+    const loadingAnim = React.useRef(new Animated.Value(0)).current;
+    const checkAnim = React.useRef(new Animated.Value(0)).current;
+    const pulseAnim = React.useRef(new Animated.Value(1)).current;
     const scrollX = React.useRef(0);
-
-    // --- YENİ EKLENEN STATE'LER ---
     const [isAtEndOfScroll, setIsAtEndOfScroll] = React.useState(false);
     const [forecastHoursToShow, setForecastHoursToShow] = React.useState(24);
 
@@ -47,6 +48,7 @@ export default function HavaDurumuDetay({ sehir, weatherData }: HavaDurumuDetayP
     const gunlukVeri = weatherData.gunlukTahmin || [];
 
     const handleDataPointClick = (data: { value: number; index: number; x: number; y: number; }) => {
+        if (data.value === null || data.value === undefined) return;
         const correctedX = data.x - scrollX.current + Y_AXIS_WIDTH;
         const newData = { ...data, x: correctedX };
         if (tooltipData && tooltipData.index === data.index) {
@@ -57,10 +59,10 @@ export default function HavaDurumuDetay({ sehir, weatherData }: HavaDurumuDetayP
         }
     };
 
-    const convertTemperature = (celsius: number) => {
-        if (celsius === null || celsius === undefined) return '--';
-        if (unit === 'F') return Math.round((celsius * 9 / 5) + 32);
-        return Math.round(celsius);
+    const convertTemperature = (celsius: number): number => {
+        if (celsius === null || celsius === undefined) return 0;
+        if (unit === 'F') return parseFloat(((celsius * 9 / 5) + 32).toFixed(1));
+        return parseFloat(celsius.toFixed(1));
     };
 
     const renderWeatherIcon = (code: number, size: number) => {
@@ -77,7 +79,7 @@ export default function HavaDurumuDetay({ sehir, weatherData }: HavaDurumuDetayP
     };
 
     const detaylar = [
-        { title: 'HİSSEDİLEN', value: `${convertTemperature(anlikVeri.hissedilen)}°`, icon: <Thermometer size={20} color={colors.icon} /> },
+        { title: 'HİSSEDİLEN', value: `${Math.round(anlikVeri.hissedilen)}°`, icon: <Thermometer size={20} color={colors.icon} /> },
         { title: 'NEM', value: `${Math.round(anlikVeri.nem)}%`, icon: <Droplets size={20} color={colors.icon} /> },
         { title: 'RÜZGAR', value: `${anlikVeri.ruzgarHizi.toFixed(1)} km/s`, icon: <Wind size={20} color={colors.icon} /> },
         { title: 'GÖRÜŞ MESAFESİ', value: `${anlikVeri.gorusMesafesi.toFixed(1)} km`, icon: <Eye size={20} color={colors.icon} /> },
@@ -86,46 +88,110 @@ export default function HavaDurumuDetay({ sehir, weatherData }: HavaDurumuDetayP
     const cardStyle = theme === 'light' ? styles.cardShadow : {};
     const DATA_POINT_WIDTH = 60;
 
-    // --- GRAFİK VERİ FONKSİYONU GÜNCELLENDİ ---
-    const getChartData = (): LineChartData => {
-        const emptyData: LineChartData = { labels: [], datasets: [{ data: [] }] };
-        if (!saatlikVeri || saatlikVeri.length === 0) return emptyData;
-
-        const dataSlice = saatlikVeri.slice(selectedHourIndex, selectedHourIndex + forecastHoursToShow);
-
-        const anaVeri = dataSlice.map(item => Math.round(item.sicaklik));
+    const showLoadingModal = () => {
+        setLoadingModalVisible(true);
+        loadingAnim.setValue(0);
+        checkAnim.setValue(0);
+        pulseAnim.setValue(1);
         
-        const aiVeri = dataSlice.map((item, index) => {
-            if (item.aiSicaklikTahmini == null) {
-                return null;
-            }
-            return Math.round(item.aiSicaklikTahmini);
-        });
+        const pulseAnimation = Animated.loop(Animated.sequence([
+            Animated.timing(pulseAnim, { toValue: 1.2, duration: 800, useNativeDriver: true }),
+            Animated.timing(pulseAnim, { toValue: 1, duration: 800, useNativeDriver: true })
+        ]));
         
-        // Kırmızı ve mavi çizgiyi birleştirmek için kesişim noktasını ayarla
-        if (forecastHoursToShow > 24 && anaVeri.length > 24 && aiVeri[24] != null) {
-            aiVeri[23] = anaVeri[23];
-        }
+        const loadingAnimation = Animated.loop(Animated.timing(loadingAnim, { toValue: 1, duration: 1000, useNativeDriver: true }));
         
-        const labels = dataSlice.map((item) => item.saat);
-
-        return {
-            labels: labels,
-            datasets: [
-                { data: anaVeri as number[], color: (opacity = 1) => `rgba(135, 206, 250, ${opacity})`, strokeWidth: 2 },
-                { data: aiVeri as number[], color: (opacity = 1) => `rgba(255, 71, 87, ${opacity})`, strokeWidth: 2 }
-            ]
-        };
+        pulseAnimation.start();
+        loadingAnimation.start();
+        
+        setTimeout(() => {
+            pulseAnimation.stop();
+            loadingAnimation.stop();
+            
+            Animated.sequence([
+                Animated.timing(loadingAnim, { toValue: 0, duration: 200, useNativeDriver: true }),
+                Animated.spring(checkAnim, { toValue: 1, friction: 6, useNativeDriver: true })
+            ]).start(() => {
+                setTimeout(() => {
+                    setLoadingModalVisible(false);
+                    setForecastHoursToShow(30);
+                }, 800);
+            });
+        }, 2000);
     };
+
+    const closeModal = () => {
+        setTooltipData(null);
+        setModalVisible(false);
+        setForecastHoursToShow(24);
+        setIsAtEndOfScroll(false);
+    };
+
+    const getChartData = (): LineChartData => {
+    const emptyData: LineChartData = { labels: [], datasets: [{ data: [] }] };
+    if (!saatlikVeri || saatlikVeri.length === 0) return emptyData;
+    const dataSlice = saatlikVeri.slice(0, forecastHoursToShow);
+    const labels = dataSlice.map((item) => item.saat);
     
+    // Ana veri - sadece ilk 24 saat için
+    const anaVeri = dataSlice.map((item, index) => {
+        if (index < 24) {
+            return convertTemperature(item.sicaklik);
+        }
+        return null; // 24 saatten sonra ana veri null olmalı
+    });
+    
+    // AI verisi - sadece 24 saatten sonra gösterilecek
+    const aiVeri = dataSlice.map((item, index) => {
+        if (forecastHoursToShow <= 24) {
+            return null; // 24 saat modunda AI verisi hiç gösterilmesin
+        }
+        if (index < 23) {
+            return null; // 23. indexten önce AI verisi yok
+        }
+        if (index === 23) {
+            return convertTemperature(saatlikVeri[23].sicaklik); // Bağlantı noktası
+        }
+        if (item.aiSicaklikTahmini != null) {
+            return convertTemperature(item.aiSicaklikTahmini);
+        }
+        return null;
+    });
+    
+    const datasets = [];
+    
+    // Ana veri her zaman eklenir (24 saat için)
+    datasets.push({
+        data: anaVeri as number[], 
+        color: (opacity = 1) => `rgba(135, 206, 250, ${opacity})`, 
+        strokeWidth: 2, 
+        withDots: true 
+    });
+    
+    // AI verisi sadece 24 saatten fazla gösteriliyorsa eklenir
+    if (forecastHoursToShow > 24) {
+        datasets.push({
+            data: aiVeri as number[], 
+            color: (opacity = 1) => `rgba(255, 71, 87, ${opacity})`, 
+            strokeWidth: 2, 
+            withDots: false
+        });
+    }
+    
+    return {
+        labels: labels,
+        datasets: datasets
+    };
+};
+
     const chartConfig = {
-        backgroundGradientFrom: colors.cardBackground, 
-        backgroundGradientTo: colors.cardBackground, 
+        backgroundGradientFrom: colors.cardBackground,
+        backgroundGradientTo: colors.cardBackground,
         decimalPlaces: 0,
         color: (opacity = 1) => `rgba(${theme === 'dark' ? 255 : 0}, ${theme === 'dark' ? 255 : 0}, ${theme === 'dark' ? 255 : 0}, ${opacity})`,
         labelColor: (opacity = 1) => `rgba(${theme === 'dark' ? 255 : 0}, ${theme === 'dark' ? 255 : 0}, ${theme === 'dark' ? 255 : 0}, ${opacity})`,
-        style: { borderRadius: 16 }, 
-        propsForDots: { r: "5", strokeWidth: "2", stroke: "#ffa726" },
+        style: { borderRadius: 16 },
+        propsForDots: { r: "4", strokeWidth: "2", stroke: theme === 'dark' ? "#4A90E2" : "#007AFF" },
         withVerticalLines: false,
         withHorizontalLines: true,
         fromZero: false,
@@ -134,23 +200,22 @@ export default function HavaDurumuDetay({ sehir, weatherData }: HavaDurumuDetayP
     const chartData = getChartData();
     const totalChartWidth = Math.max(width - 80, (chartData.labels?.length || 0) * DATA_POINT_WIDTH);
     
-    const allTemperatures = saatlikVeri.slice(selectedHourIndex, selectedHourIndex + forecastHoursToShow).map(item => item.sicaklik);
-    const minTemp = allTemperatures.length > 0 ? Math.min(...allTemperatures) : 0;
-    const maxTemp = allTemperatures.length > 0 ? Math.max(...allTemperatures) : 30;
+    const allTemperatures = saatlikVeri.slice(0, forecastHoursToShow).map(item => item.sicaklik);
+    const minTemp = allTemperatures.length > 0 ? Math.floor(Math.min(...allTemperatures)) : 0;
+    const maxTemp = allTemperatures.length > 0 ? Math.ceil(Math.max(...allTemperatures)) : 30;
     
-    const updatedChartConfig = { ...chartConfig, segments: 4 };
-
     const generateYAxisLabels = () => {
-        if(minTemp === maxTemp) return [`${Math.round(minTemp)}°`];
+        if(minTemp === maxTemp) return [`${minTemp}°`];
         const labels = [];
         const range = maxTemp - minTemp;
-        const step = range > 0 ? range / 4 : 1;
+        const step = range > 0 ? Math.ceil(range / 4) : 1;
         for (let i = 0; i <= 4; i++) {
-            labels.push(`${Math.round(maxTemp - (i * step))}°`);
+            let label = maxTemp - (i * step);
+            if(label < minTemp) label = minTemp;
+            labels.push(`${Math.round(label)}°`);
         }
         return labels;
     };
-
     const yAxisLabels = generateYAxisLabels();
 
     return (
@@ -160,9 +225,9 @@ export default function HavaDurumuDetay({ sehir, weatherData }: HavaDurumuDetayP
             <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
                 <View style={styles.anaHavaBolumu}>
                     <Text style={[styles.sehirAdi, { color: colors.text }]}>{sehir.ad}</Text>
-                    <Text style={[styles.anlikSicaklik, { color: colors.text }]}>{convertTemperature(anlikVeri.sicaklik)}°</Text>
-                    <Text style={[styles.havaDurumu, { color: colors.text, marginBottom: 8 }]}>{anlikVeri.durum} · Hissedilen: {convertTemperature(anlikVeri.hissedilen)}°</Text>
-                    <Text style={[styles.yuksekDusukSicaklik, { color: colors.text }]}>Y:{convertTemperature(anlikVeri.enYuksek)}° D:{convertTemperature(anlikVeri.enDusuk)}°</Text>
+                    <Text style={[styles.anlikSicaklik, { color: colors.text }]}>{Math.round(anlikVeri.sicaklik)}°</Text>
+                    <Text style={[styles.havaDurumu, { color: colors.text, marginBottom: 8 }]}>{anlikVeri.durum} · Hissedilen: {Math.round(anlikVeri.hissedilen)}°</Text>
+                    <Text style={[styles.yuksekDusukSicaklik, { color: colors.text }]}>Y:{Math.round(anlikVeri.enYuksek)}° D:{Math.round(anlikVeri.enDusuk)}°</Text>
                 </View>
 
                 <View style={[styles.card, cardStyle, { backgroundColor: colors.cardBackground, borderColor: colors.borderColor }]}>
@@ -172,26 +237,34 @@ export default function HavaDurumuDetay({ sehir, weatherData }: HavaDurumuDetayP
                             <TouchableOpacity
                                 key={index}
                                 style={styles.hourlyItem}
-                                onPress={() => { setSelectedHourIndex(index); setModalVisible(true); }}
+                                onPress={() => { setModalVisible(true); }}
                                 activeOpacity={0.7}
                             >
                                 <Text style={[styles.hourlyTime, { color: colors.icon }]}>{index === 0 ? 'Şimdi' : item.saat}</Text>
                                 <View style={styles.hourlyIcon}>{renderWeatherIcon(item.durumKodu, 24)}</View>
-                                <Text style={[styles.hourlyTemp, { color: colors.text }]}>{convertTemperature(item.sicaklik)}°</Text>
+                                <Text style={[styles.hourlyTemp, { color: colors.text }]}>{Math.round(item.sicaklik)}°</Text>
                             </TouchableOpacity>
                         ))}
                     </ScrollView>
                 </View>
 
-                <Modal visible={modalVisible} animationType="slide" transparent onRequestClose={() => setModalVisible(false)}>
+                {/* Ana Modal - DÜZELTİLDİ */}
+                <Modal visible={modalVisible} animationType="slide" transparent onRequestClose={closeModal}>
                     <View style={styles.modalOverlay}>
                         <View style={[styles.modalContent, { backgroundColor: colors.cardBackground }]}>
-                            <Text style={[styles.modalTitle, { color: colors.text }]}>Sonraki Saatler için Sıcaklık</Text>
+                            <View style={styles.modalHeader}>
+                                <Text style={[styles.modalTitle, { color: colors.text }]}>Sonraki Saatler için Sıcaklık</Text>
+                                <TouchableOpacity onPress={closeModal} style={styles.closeIconButton}>
+                                    <X size={24} color={colors.text} />
+                                </TouchableOpacity>
+                            </View>
                             
                             <View style={styles.chartContainer}>
                                 <View style={[styles.yAxisContainer, { width: Y_AXIS_WIDTH }]}>
                                     {yAxisLabels.map((label, index) => (
-                                        <View key={index} style={styles.yAxisLabelContainer}><Text style={[styles.yAxisLabel, { color: colors.text }]}>{label}</Text></View>
+                                        <View key={index} style={styles.yAxisLabelContainer}>
+                                            <Text style={[styles.yAxisLabel, { color: colors.text }]}>{label}</Text>
+                                        </View>
                                     ))}
                                 </View>
                                 
@@ -207,44 +280,127 @@ export default function HavaDurumuDetay({ sehir, weatherData }: HavaDurumuDetayP
                                     scrollEventThrottle={16}
                                     style={styles.chartScrollView}
                                 >
-                                    {chartData.labels && chartData.labels.length > 0 && (
+                                    {chartData.labels.length > 0 && (
                                         <LineChart
-                                            data={chartData} width={totalChartWidth} height={250} 
-                                            chartConfig={updatedChartConfig} bezier style={styles.chartStyle} 
-                                            fromZero={false} segments={4}
+                                            data={chartData} 
+                                            width={totalChartWidth} 
+                                            height={250} 
+                                            chartConfig={chartConfig}
+                                            bezier 
+                                            style={styles.chartStyle}
+                                            fromZero={false}
+                                            segments={4}
                                             onDataPointClick={handleDataPointClick}
-                                            withVerticalLabels={true} withHorizontalLabels={false}
+                                            withVerticalLabels={true} 
+                                            withHorizontalLabels={false}
                                         />
                                     )}
                                 </ScrollView>
                             </View>
                             
-                            {/* --- BUTON MANTIĞI GÜNCELLENDİ --- */}
                             <View style={styles.buttonContainer}>
                                 {isAtEndOfScroll && forecastHoursToShow < 30 && saatlikVeri.length >= 30 && (
-                                    <TouchableOpacity 
-                                        style={styles.predictButton}
-                                        onPress={() => setForecastHoursToShow(30)}
-                                    >
+                                    <TouchableOpacity style={styles.predictButton} onPress={showLoadingModal}>
                                         <Text style={styles.predictButtonText}>+6 Saat AI Tahmini</Text>
                                     </TouchableOpacity>
                                 )}
-                                <Pressable style={[styles.closeButton]} onPress={() => { setTooltipData(null); setModalVisible(false); setForecastHoursToShow(24); setIsAtEndOfScroll(false); }}>
-                                    <Text style={[styles.closeButtonText, { color: colors.text }]}>Kapat</Text>
-                                </Pressable>
                             </View>
 
-                            {tooltipData && (
-                                <Animated.View style={[
-                                    styles.tooltipContainer,
-                                    { left: tooltipData.x - 25, top: tooltipData.y - 45, opacity: tooltipAnim, transform: [{ scale: tooltipAnim }] }
-                                ]}><Text style={styles.tooltipText}>{Math.round(tooltipData.value)}°</Text></Animated.View>
+                            {tooltipData && tooltipData.value !== null && (
+                                <Animated.View style={[ styles.tooltipContainer, { left: tooltipData.x - 25, top: tooltipData.y - 45, opacity: tooltipAnim, transform: [{ scale: tooltipAnim }] } ]}>
+                                    <Text style={styles.tooltipText}>{tooltipData.value.toFixed(1)}°</Text>
+                                </Animated.View>
                             )}
                         </View>
+                        {/* Overlay'e tıklandığında modal'ı kapatmak için invisible touch area */}
+                        <Pressable 
+                            style={styles.overlayTouchArea} 
+                            onPress={closeModal}
+                        />
                     </View>
                 </Modal>
-                
-                {/* ... (Günlük Tahmin ve Detay Kartları aynı) ... */}
+
+                {/* Apple Face ID Tarzı Loading Modal */}
+                <Modal visible={loadingModalVisible} transparent animationType="fade" onRequestClose={() => {}}>
+                    <View style={styles.loadingModalOverlay}>
+                        <Animated.View style={[
+                            styles.loadingModalContent, 
+                            { backgroundColor: colors.cardBackground, transform: [{ scale: pulseAnim }] }
+                        ]}>
+                            <View style={styles.loadingContainer}>
+                                <Animated.View style={[
+                                    styles.loadingCircle,
+                                    {
+                                        opacity: loadingAnim,
+                                        transform: [{
+                                            rotate: loadingAnim.interpolate({
+                                                inputRange: [0, 1],
+                                                outputRange: ['0deg', '360deg']
+                                            })
+                                        }]
+                                    }
+                                ]} />
+                                
+                                <Animated.View style={[
+                                    styles.checkContainer,
+                                    {
+                                        opacity: checkAnim,
+                                        transform: [{ scale: checkAnim }]
+                                    }
+                                ]}>
+                                    <CheckCircle size={60} color="#4CAF50" />
+                                </Animated.View>
+                            </View>
+                            
+                            <Animated.Text style={[
+                                styles.loadingText, 
+                                { color: colors.text, opacity: loadingAnim }
+                            ]}>
+                                AI Tahmini Yükleniyor...
+                            </Animated.Text>
+                            
+                            <Animated.Text style={[
+                                styles.successText, 
+                                { color: '#4CAF50', opacity: checkAnim }
+                            ]}>
+                                Tahmin Hazır!
+                            </Animated.Text>
+                        </Animated.View>
+                    </View>
+                </Modal>
+
+                {/* Günlük Tahmin Kartı */}
+                <View style={[styles.card, cardStyle, { backgroundColor: colors.cardBackground, borderColor: colors.borderColor }]}>
+                    <Text style={[styles.cardTitle, { color: colors.icon }]}>10 GÜNLÜK TAHMİN</Text>
+                    {gunlukVeri.map((item, index) => (
+                        <View key={index} style={[styles.gunlukItem, { borderBottomColor: colors.borderColor }]}>
+                            <View style={styles.gunlukSol}>
+                                <Text style={[styles.gunText, { color: colors.text }]}>{index === 0 ? 'Bugün' : gunKisaltma(item.gun)}</Text>
+                                <View style={styles.gunlukIcon}>{renderWeatherIcon(item.durumKodu, 28)}</View>
+                            </View>
+                            <View style={styles.gunlukSag}>
+                                <Text style={[styles.gunlukDusukSicaklik, { color: colors.text }]}>{Math.round(item.enDusuk)}°</Text>
+                                <View style={styles.sicaklikAralikKapsayici}>
+                                    <LinearGradient colors={['#4facfe', '#00f2fe']} style={styles.sicaklikAralikArkaPlan} />
+                                </View>
+                                <Text style={[styles.gunlukYuksekSicaklik, { color: colors.text }]}>{Math.round(item.enYuksek)}°</Text>
+                            </View>
+                        </View>
+                    ))}
+                </View>
+
+                {/* Detay Kartları */}
+                <View style={styles.detayKartlarGrid}>
+                    {detaylar.map((detay, index) => (
+                        <View key={index} style={styles.detayKartKapsayici}>
+                            <View style={[styles.detayKart, cardStyle, { backgroundColor: colors.cardBackground, borderColor: colors.borderColor, borderWidth: StyleSheet.hairlineWidth, borderRadius: 16 }]}>
+                                <View style={styles.detayKartIcon}>{detay.icon}</View>
+                                <Text style={[styles.detayKartBaslik, { color: colors.icon }]}>{detay.title}</Text>
+                                <Text style={[styles.detayKartDeger, { color: colors.text }]}>{detay.value}</Text>
+                            </View>
+                        </View>
+                    ))}
+                </View>
             </ScrollView>
         </View>
     );
@@ -269,43 +425,65 @@ const styles = StyleSheet.create({
     hourlyTime: { fontSize: 13, fontWeight: '600', marginBottom: 8 },
     hourlyIcon: { height: 32, width: 32, alignItems: 'center', justifyContent: 'center', marginBottom: 8 },
     hourlyTemp: { fontSize: 20, fontWeight: '600' },
-    // ... (diğer stiller)
     modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center' },
-    modalContent: { borderRadius: 20, paddingVertical: 24, paddingHorizontal: 16, alignItems: 'center', width: '90%' },
-    modalTitle: { fontSize: 18, fontWeight: 'bold', marginBottom: 10 },
+    modalContent: { borderRadius: 20, paddingVertical: 24, paddingHorizontal: 16, alignItems: 'center', width: '90%', position: 'relative', zIndex: 10 },
+    modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', width: '100%', marginBottom: 10 },
+    modalTitle: { fontSize: 18, fontWeight: 'bold' },
+    closeIconButton: { padding: 8 },
     chartContainer: { flexDirection: 'row', alignItems: 'stretch', height: 250, width: '100%', },
     yAxisContainer: { justifyContent: 'space-between', alignItems: 'flex-end', paddingRight: 4, paddingTop: 20, paddingBottom: 50, },
     yAxisLabelContainer: { flex: 1, justifyContent: 'center', },
     yAxisLabel: { fontSize: 12, fontWeight: '500', textAlign: 'right', },
     chartScrollView: { flex: 1, },
-    chartStyle: { marginVertical: 16, borderRadius: 16 },
+    chartStyle: { marginVertical: 16, borderRadius: 16, paddingRight: 30 },
     closeButtonText: { fontSize: 16, fontWeight: '600' },
     tooltipContainer: { position: 'absolute', backgroundColor: '#2c3e50', paddingVertical: 6, paddingHorizontal: 12, borderRadius: 8, zIndex: 20 },
     tooltipText: { color: 'white', fontWeight: 'bold', fontSize: 14 },
-    // YENİ EKLENEN STİLLER
-    buttonContainer: {
-        flexDirection: 'row',
-        justifyContent: 'space-around',
-        alignItems: 'center',
-        width: '100%',
-        marginTop: 20,
+    buttonContainer: { flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center', width: '100%', marginTop: 20, },
+    predictButton: { backgroundColor: '#ff4757', paddingVertical: 12, paddingHorizontal: 20, borderRadius: 20, elevation: 2, },
+    predictButtonText: { color: 'white', fontWeight: 'bold', fontSize: 16, },
+    closeButton: { borderRadius: 20, paddingVertical: 12, paddingHorizontal: 30, elevation: 2, },
+    
+    // Overlay touch area - DÜZELTİLDİ
+    overlayTouchArea: { 
+        position: 'absolute', 
+        top: 0, 
+        left: 0, 
+        right: 0, 
+        bottom: 0, 
+        zIndex: 1 
     },
-    predictButton: {
-        backgroundColor: '#ff4757',
-        paddingVertical: 12,
-        paddingHorizontal: 20,
-        borderRadius: 20,
-        elevation: 2,
+    
+    // Loading Modal Styles
+    loadingModalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.8)', justifyContent: 'center', alignItems: 'center' },
+    loadingModalContent: { borderRadius: 20, padding: 40, alignItems: 'center', width: '80%', minHeight: 200 },
+    loadingContainer: { position: 'relative', width: 80, height: 80, justifyContent: 'center', alignItems: 'center', marginBottom: 20 },
+    loadingCircle: { 
+        position: 'absolute',
+        width: 60, 
+        height: 60, 
+        borderRadius: 30, 
+        borderWidth: 3, 
+        borderColor: '#007AFF', 
+        borderTopColor: 'transparent',
     },
-    predictButtonText: {
-        color: 'white',
-        fontWeight: 'bold',
-        fontSize: 16,
-    },
-    closeButton: {
-        borderRadius: 20,
-        paddingVertical: 12,
-        paddingHorizontal: 30,
-        elevation: 2,
-    },
+    checkContainer: { position: 'absolute' },
+    loadingText: { fontSize: 16, fontWeight: '600', textAlign: 'center', marginBottom: 10 },
+    successText: { fontSize: 16, fontWeight: '600', textAlign: 'center' },
+    
+    gunlukItem: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 8, borderBottomWidth: StyleSheet.hairlineWidth },
+    gunlukSol: { flexDirection: 'row', alignItems: 'center', flex: 1 },
+    gunText: { fontSize: 17, fontWeight: '400', width: 50 },
+    gunlukIcon: { marginLeft: 12, width: 28, height: 28, alignItems: 'center', justifyContent: 'center' },
+    gunlukSag: { flexDirection: 'row', alignItems: 'center', flex: 1, justifyContent: 'flex-end' },
+    gunlukDusukSicaklik: { fontSize: 17, fontWeight: '400', width: 35, textAlign: 'right', opacity: 0.8 },
+    sicaklikAralikKapsayici: { flex: 1, height: 4, borderRadius: 2, marginHorizontal: 12 },
+    sicaklikAralikArkaPlan: { flex: 1, borderRadius: 2 },
+    gunlukYuksekSicaklik: { fontSize: 17, fontWeight: '400', width: 35, textAlign: 'right' },
+    detayKartlarGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', paddingHorizontal: 20 },
+    detayKartKapsayici: { width: (width - 52) / 2, marginBottom: 12 },
+    detayKart: { padding: 16, alignItems: 'center', height: 120, margin: 0 },
+    detayKartIcon: { alignItems: 'center', marginBottom: 8 },
+    detayKartBaslik: { fontSize: 13, fontWeight: '600', marginBottom: 4, letterSpacing: 0.5, textAlign: 'center' },
+    detayKartDeger: { fontSize: 24, fontWeight: '400', flex: 1, textAlign: 'center' },
 });
