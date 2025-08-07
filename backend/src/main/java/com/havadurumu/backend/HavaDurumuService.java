@@ -1,4 +1,4 @@
-// Dosya: src/main/java/com/havadurumu/backend/service/HavaDurumuService.java
+// Dosya: src/main/java/com/havadurumu/backend/HavaDurumuService.java
 package com.havadurumu.backend;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -28,25 +28,15 @@ public class HavaDurumuService {
     }
 
     public HavaDurumuCevapDto getWeather(String lat, String lon) {
-        // İstanbul saati ile 24 saatlik pencere
-        ZoneId ist = ZoneId.of("Europe/Istanbul");
-        ZonedDateTime nowIst = ZonedDateTime.now(ist)
-            .withMinute(0).withSecond(0).withNano(0);
-        ZonedDateTime endIst = nowIst.plusHours(23);
-
-        String startUtc = nowIst.withZoneSameInstant(ZoneOffset.UTC)
-                               .format(DateTimeFormatter.ISO_INSTANT);
-        String endUtc   = endIst.withZoneSameInstant(ZoneOffset.UTC)
-                               .format(DateTimeFormatter.ISO_INSTANT);
-
+        
+        // ✅ DEĞİŞİKLİK: Belirli bir zaman aralığı istemeyi kaldırıyoruz.
+        // Bu, API'nin bize sunabileceği maksimum saatlik veriyi (genellikle 48+ saat) göndermesini sağlar.
         String url = UriComponentsBuilder.fromHttpUrl(API_URL)
             .queryParam("location", lat + "," + lon)
             .queryParam("apikey",   apiKey)
             .queryParam("timesteps","1h,1d")
             .queryParam("units",    "metric")
             .queryParam("language", "tr")
-            .queryParam("startTime", startUtc)
-            .queryParam("endTime",   endUtc)
             .toUriString();
 
         try {
@@ -59,7 +49,7 @@ public class HavaDurumuService {
 
             // — Anlık veri —
             JsonNode nowVals   = hourly.get(0).path("values");
-            JsonNode todayVals = daily .get(0).path("values");
+            JsonNode todayVals = daily.get(0).path("values");
             AnlikHavaDurumuDto anlik = new AnlikHavaDurumuDto();
             anlik.setSicaklik(   nowVals.path("temperature").asDouble());
             anlik.setEnYuksek(   todayVals.path("temperatureMax").asDouble());
@@ -67,12 +57,12 @@ public class HavaDurumuService {
             anlik.setDurum(      weatherCodeToTurkish(nowVals.path("weatherCode").asInt()));
             anlik.setHissedilen( nowVals.path("temperatureApparent").asDouble());
             anlik.setNem(        nowVals.path("humidity").asDouble());
-            anlik.setRuzgarHizi(nowVals.path("windSpeed").asDouble());
+            anlik.setRuzgarHizi( nowVals.path("windSpeed").asDouble());
             anlik.setGorusMesafesi(nowVals.path("visibility").asDouble());
             anlik.setBasinc(     nowVals.path("pressureSurfaceLevel").asDouble());
             anlik.setDurumKodu(  nowVals.path("weatherCode").asInt());
 
-            // — Saatlik 24h liste —
+            // — Saatlik 48h liste —
             List<SaatlikTahminDto> saatlik = new ArrayList<>();
             DateTimeFormatter hhFmt = DateTimeFormatter.ofPattern("HH:00");
             for (JsonNode n : hourly) {
@@ -80,14 +70,15 @@ public class HavaDurumuService {
                 OffsetDateTime odt = OffsetDateTime.parse(n.path("time").asText())
                     .withOffsetSameInstant(ZoneOffset.ofHours(3));
                 SaatlikTahminDto dto = new SaatlikTahminDto();
-                dto.setSaat(    odt.format(hhFmt));
-                dto.setIsoTime( odt.toLocalDateTime().toString());
-                dto.setSicaklik(v.path("temperature").asDouble());
+                dto.setSaat(     odt.format(hhFmt));
+                dto.setIsoTime(  odt.toLocalDateTime().toString());
+                dto.setSicaklik( v.path("temperature").asDouble());
                 dto.setDurumKodu(v.path("weatherCode").asInt());
-                dto.setNem(     v.path("humidity").asDouble());
+                dto.setNem(      v.path("humidity").asDouble());
                 saatlik.add(dto);
             }
-            if (saatlik.size() > 24) saatlik = saatlik.subList(0,24);
+            // ✅ DEĞİŞİKLİK: Artık listeyi 24 saat ile sınırlamıyoruz.
+            // if (saatlik.size() > 24) saatlik = saatlik.subList(0,24);
 
             // — Günlük 1d liste —
             List<GunlukTahminDto> gunluk = new ArrayList<>();
@@ -98,7 +89,7 @@ public class HavaDurumuService {
                 gd.setGun(       odt.getDayOfWeek().getDisplayName(TextStyle.FULL, new Locale("tr","TR")));
                 gd.setEnDusuk(   d.path("values").path("temperatureMin").asDouble());
                 gd.setEnYuksek(  d.path("values").path("temperatureMax").asDouble());
-                gd.setDurumKodu(d.path("values").path("weatherCodeMax").asInt());
+                gd.setDurumKodu( d.path("values").path("weatherCodeMax").asInt());
                 gunluk.add(gd);
             }
 

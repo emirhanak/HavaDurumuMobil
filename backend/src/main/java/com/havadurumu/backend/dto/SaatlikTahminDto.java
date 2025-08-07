@@ -2,16 +2,15 @@ package com.havadurumu.backend.dto;
 
 public class SaatlikTahminDto {
     private String saat;
-    private double sicaklik;
+    private double sicaklik; // Tomorrow.io'nun tahmini
     private int durumKodu;
     private double nem;
     private String isoTime;
-
-    // Karşılaştırma için AI tahmin alanları
-    private Double aiSicaklikTahmini;
+    private Double aiSicaklikTahmini; // Bizim AI modelimizin tahmini
     private Double aiNemTahmini;
+    private Double sapmaOrani;
 
-    // --- Getters ve Setters ---
+    // Tüm alanlar için Getters ve Setters...
     public String getSaat() { return saat; }
     public void setSaat(String saat) { this.saat = saat; }
     public double getSicaklik() { return sicaklik; }
@@ -26,4 +25,6 @@ public class SaatlikTahminDto {
     public void setAiSicaklikTahmini(Double aiSicaklikTahmini) { this.aiSicaklikTahmini = aiSicaklikTahmini; }
     public Double getAiNemTahmini() { return aiNemTahmini; }
     public void setAiNemTahmini(Double aiNemTahmini) { this.aiNemTahmini = aiNemTahmini; }
+    public Double getSapmaOrani() { return sapmaOrani; }
+    public void setSapmaOrani(Double sapmaOrani) { this.sapmaOrani = sapmaOrani; }
 }
