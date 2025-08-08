@@ -93,21 +93,16 @@ export default function HavaDurumuDetay({ sehir, weatherData }: HavaDurumuDetayP
         loadingAnim.setValue(0);
         checkAnim.setValue(0);
         pulseAnim.setValue(1);
-        
         const pulseAnimation = Animated.loop(Animated.sequence([
             Animated.timing(pulseAnim, { toValue: 1.2, duration: 800, useNativeDriver: true }),
             Animated.timing(pulseAnim, { toValue: 1, duration: 800, useNativeDriver: true })
         ]));
-        
         const loadingAnimation = Animated.loop(Animated.timing(loadingAnim, { toValue: 1, duration: 1000, useNativeDriver: true }));
-        
         pulseAnimation.start();
         loadingAnimation.start();
-        
         setTimeout(() => {
             pulseAnimation.stop();
             loadingAnimation.stop();
-            
             Animated.sequence([
                 Animated.timing(loadingAnim, { toValue: 0, duration: 200, useNativeDriver: true }),
                 Animated.spring(checkAnim, { toValue: 1, friction: 6, useNativeDriver: true })
@@ -115,9 +110,9 @@ export default function HavaDurumuDetay({ sehir, weatherData }: HavaDurumuDetayP
                 setTimeout(() => {
                     setLoadingModalVisible(false);
                     setForecastHoursToShow(30);
-                }, 800);
+                }, 300);
             });
-        }, 2000);
+        }, 1000);
     };
 
     const closeModal = () => {
@@ -128,61 +123,27 @@ export default function HavaDurumuDetay({ sehir, weatherData }: HavaDurumuDetayP
     };
 
     const getChartData = (): LineChartData => {
-    const emptyData: LineChartData = { labels: [], datasets: [{ data: [] }] };
-    if (!saatlikVeri || saatlikVeri.length === 0) return emptyData;
-    const dataSlice = saatlikVeri.slice(0, forecastHoursToShow);
-    const labels = dataSlice.map((item) => item.saat);
-    
-    // Ana veri - sadece ilk 24 saat için
-    const anaVeri = dataSlice.map((item, index) => {
-        if (index < 24) {
+        const emptyData: LineChartData = { labels: [], datasets: [{ data: [] }] };
+        if (!saatlikVeri || saatlikVeri.length === 0) return emptyData;
+        const dataSlice = saatlikVeri.slice(0, forecastHoursToShow);
+        const labels = dataSlice.map((item) => item.saat);
+        const anaVeri = dataSlice.map((item, index) => {
+            if (forecastHoursToShow > 24 && index >= 24) return null;
             return convertTemperature(item.sicaklik);
-        }
-        return null; // 24 saatten sonra ana veri null olmalı
-    });
-    
-    // AI verisi - sadece 24 saatten sonra gösterilecek
-    const aiVeri = dataSlice.map((item, index) => {
-        if (forecastHoursToShow <= 24) {
-            return null; // 24 saat modunda AI verisi hiç gösterilmesin
-        }
-        if (index < 23) {
-            return null; // 23. indexten önce AI verisi yok
-        }
-        if (index === 23) {
-            return convertTemperature(saatlikVeri[23].sicaklik); // Bağlantı noktası
-        }
-        if (item.aiSicaklikTahmini != null) {
-            return convertTemperature(item.aiSicaklikTahmini);
-        }
-        return null;
-    });
-    
-    const datasets = [];
-    
-    // Ana veri her zaman eklenir (24 saat için)
-    datasets.push({
-        data: anaVeri as number[], 
-        color: (opacity = 1) => `rgba(135, 206, 250, ${opacity})`, 
-        strokeWidth: 2, 
-        withDots: true 
-    });
-    
-    // AI verisi sadece 24 saatten fazla gösteriliyorsa eklenir
-    if (forecastHoursToShow > 24) {
-        datasets.push({
-            data: aiVeri as number[], 
-            color: (opacity = 1) => `rgba(255, 71, 87, ${opacity})`, 
-            strokeWidth: 2, 
-            withDots: false
         });
-    }
-    
-    return {
-        labels: labels,
-        datasets: datasets
+        const aiVeri = dataSlice.map((item, index) => {
+            if (forecastHoursToShow <= 24 || index < 23 || item.aiSicaklikTahmini == null) return null;
+            if (index === 23) return convertTemperature(saatlikVeri[23].sicaklik);
+            return convertTemperature(item.aiSicaklikTahmini);
+        });
+        return {
+            labels: labels,
+            datasets: [
+                { data: anaVeri as number[], color: (opacity = 1) => `rgba(135, 206, 250, ${opacity})`, strokeWidth: 2, withDots: true },
+                { data: aiVeri as number[], color: (opacity = 1) => `rgba(255, 71, 87, ${opacity})`, strokeWidth: 2, withDots: forecastHoursToShow > 24 }
+            ]
+        };
     };
-};
 
     const chartConfig = {
         backgroundGradientFrom: colors.cardBackground,
@@ -321,7 +282,7 @@ export default function HavaDurumuDetay({ sehir, weatherData }: HavaDurumuDetayP
                 </Modal>
 
                 {/* Apple Face ID Tarzı Loading Modal */}
-                <Modal visible={loadingModalVisible} transparent animationType="fade" onRequestClose={() => {}}>
+                <Modal visible={loadingModalVisible} transparent animationType="fade">
                     <View style={styles.loadingModalOverlay}>
                         <Animated.View style={[
                             styles.loadingModalContent, 
@@ -371,7 +332,7 @@ export default function HavaDurumuDetay({ sehir, weatherData }: HavaDurumuDetayP
 
                 {/* Günlük Tahmin Kartı */}
                 <View style={[styles.card, cardStyle, { backgroundColor: colors.cardBackground, borderColor: colors.borderColor }]}>
-                    <Text style={[styles.cardTitle, { color: colors.icon }]}>10 GÜNLÜK TAHMİN</Text>
+                    <Text style={[styles.cardTitle, { color: colors.icon }]}>HAFTALIK TAHMİN</Text>
                     {gunlukVeri.map((item, index) => (
                         <View key={index} style={[styles.gunlukItem, { borderBottomColor: colors.borderColor }]}>
                             <View style={styles.gunlukSol}>
