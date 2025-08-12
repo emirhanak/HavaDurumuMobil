@@ -1,6 +1,7 @@
 import { LineChart } from "react-native-chart-kit";
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, Dimensions, TouchableOpacity, Modal, Animated, Pressable } from 'react-native';
+
+import { View, Text, StyleSheet, ScrollView, Dimensions, TouchableOpacity, Modal, Animated, Pressable, LayoutAnimation, Platform, UIManager } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Cloud, Thermometer, Droplets, Wind, Eye, Sun, CloudRain, X, CheckCircle } from 'lucide-react-native';
 import { useSettings } from '@/context/SettingsContext';
@@ -46,16 +47,37 @@ export default function HavaDurumuDetay({ sehir, weatherData }: HavaDurumuDetayP
     const [selectedHourIndex, setSelectedHourIndex] = React.useState<number | null>(null);
     const infoAnim = React.useRef(new Animated.Value(0)).current;
 
-    const openInfo = (i: number) => {
-    setSelectedHourIndex(i);
-    infoAnim.setValue(0);
-    Animated.spring(infoAnim, { toValue: 1, useNativeDriver: true, friction: 7 }).start();
-    };
-    const closeInfo = () => {
-    Animated.timing(infoAnim, { toValue: 0, duration: 150, useNativeDriver: true }).start(() =>
-        setSelectedHourIndex(null)
-    );
-    };
+ // ⬇️ ANDROID'DE LayoutAnimation'ı AÇ — BURAYA KOY
+  React.useEffect(() => {
+    if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+      UIManager.setLayoutAnimationEnabledExperimental(true);
+    }
+  }, []);
+  // ⬆️
+
+const openInfo = (i: number) => {
+  // Modal'ın yukarı doğru "genişlemesini" yumuşat
+  LayoutAnimation.configureNext(LayoutAnimation.create(
+    260, // biraz daha yavaş
+    LayoutAnimation.Types.easeInEaseOut,
+    LayoutAnimation.Properties.opacity
+  ));
+  setSelectedHourIndex(i);
+  infoAnim.setValue(0);
+  Animated.timing(infoAnim, { toValue: 1, duration: 260, useNativeDriver: true }).start();
+};
+
+const closeInfo = () => {
+  LayoutAnimation.configureNext(LayoutAnimation.create(
+    180,
+    LayoutAnimation.Types.easeInEaseOut,
+    LayoutAnimation.Properties.opacity
+  ));
+  Animated.timing(infoAnim, { toValue: 0, duration: 150, useNativeDriver: true }).start(() =>
+    setSelectedHourIndex(null)
+  );
+};
+
     // --- Günlük (ek 6 saat) AI ortalama doğruluk (YENİ) ---
     const dailyAiAvg = React.useMemo(() => {
     const slice = (weatherData?.saatlikTahmin || []).slice(24, 30);
@@ -82,6 +104,8 @@ export default function HavaDurumuDetay({ sehir, weatherData }: HavaDurumuDetayP
             setTooltipData(newData);
             Animated.spring(tooltipAnim, { toValue: 1, friction: 7, useNativeDriver: true }).start();
         }
+        openInfo(data.index);
+
     };
 
     // ESKİ (sende null/undefined için 0 döndürüyordu) --> YERİNE BUNU KOY
@@ -185,6 +209,7 @@ const getChartData = (): LineChartData => {
     };
 
     const chartData = getChartData();
+    
     const totalChartWidth = Math.max(width - 80, (chartData.labels?.length || 0) * DATA_POINT_WIDTH);
     
 const slice = saatlikVeri.slice(0, forecastHoursToShow);
@@ -208,6 +233,13 @@ const maxTemp = allTemperatures.length ? Math.ceil(Math.max(...allTemperatures))
         return labels;
     };
     const yAxisLabels = generateYAxisLabels();
+
+    // X etiketleri için görünmez dokunma bandı yüksekliği
+const LABEL_TAP_HEIGHT = 32;
+
+// Her saat etiketi için segment genişliği (grafik toplam genişliğine böl)
+const labelCount = chartData.labels?.length ?? 0;
+const segmentWidth = labelCount ? (totalChartWidth / labelCount) : DATA_POINT_WIDTH;
 
     return (
         <View style={styles.container}>
@@ -298,16 +330,16 @@ const maxTemp = allTemperatures.length ? Math.ceil(Math.max(...allTemperatures))
                                         </Text>
                                     </View>
                                     <View style={styles.infoRow}>
-                                        <Text style={[styles.infoLabel, { color: colors.icon }]}>AI Başarı</Text>
+                                        <Text style={[styles.infoLabel, { color: colors.icon }]}>AI Başarı Yüzdesi</Text>
                                         <Text style={[styles.infoBadge, { borderColor: colors.borderColor, color: colors.text }]}>
-                                        {typeof acc === 'number' ? `%${acc.toFixed(0)}` : '—'}
+{typeof acc === 'number' ? `%${acc.toFixed(1)}` : '—'}
                                         </Text>
                                     </View>
 
                                     <View style={[styles.infoRow, { marginTop: 8 }]}>
-                                        <Text style={[styles.infoLabel, { color: colors.icon }]}>Günlük AI Ortalama</Text>
+                                        <Text style={[styles.infoLabel, { color: colors.icon }]}>Günlük AI Başarı Yüzdesi</Text>
                                         <Text style={[styles.infoBadge, { borderColor: colors.borderColor, color: colors.text }]}>
-                                        {typeof dailyAiAvg === 'number' ? `%${dailyAiAvg.toFixed(0)}` : '—'}
+{typeof dailyAiAvg === 'number' ? `%${dailyAiAvg.toFixed(1)}` : '—'}
                                         </Text>
                                     </View>
 
@@ -331,55 +363,50 @@ const maxTemp = allTemperatures.length ? Math.ceil(Math.max(...allTemperatures))
                                     ))}
                                 </View>
                                 
-                                <ScrollView
-                                    horizontal
-                                    showsHorizontalScrollIndicator={false}
-                                    onScroll={({ nativeEvent }) => {
-                                        const { layoutMeasurement, contentOffset, contentSize } = nativeEvent;
-                                        const isEnd = layoutMeasurement.width + contentOffset.x >= contentSize.width - 20;
-                                        setIsAtEndOfScroll(isEnd);
-                                        scrollX.current = nativeEvent.contentOffset.x;
-                                    }}
-                                    scrollEventThrottle={16}
-                                    style={styles.chartScrollView}
-                                >
-                                    {chartData.labels.length > 0 && (
-                                        <LineChart
-                                            data={chartData} 
-                                            width={totalChartWidth} 
-                                            height={250} 
-                                            chartConfig={chartConfig}
-                                            //bezier 
-                                            style={styles.chartStyle}
-                                            fromZero={false}
-                                            segments={4}
-                                            onDataPointClick={handleDataPointClick}
-                                            withVerticalLabels={true} 
-                                            withHorizontalLabels={false}
-                                        />
-                                    )}
-                                </ScrollView>
+                              <ScrollView
+  horizontal
+  showsHorizontalScrollIndicator={false}
+  onScroll={({ nativeEvent }) => {
+    const { layoutMeasurement, contentOffset, contentSize } = nativeEvent;
+    const isEnd = layoutMeasurement.width + contentOffset.x >= contentSize.width - 20;
+    setIsAtEndOfScroll(isEnd);
+    scrollX.current = nativeEvent.contentOffset.x;
+  }}
+  scrollEventThrottle={16}
+  style={styles.chartScrollView}
+>
+  {chartData.labels.length > 0 && (
+    <View style={{ width: totalChartWidth, height: 250, position: 'relative' }}>
+      <LineChart
+        data={chartData}
+        width={totalChartWidth}
+        height={250}
+        chartConfig={chartConfig}
+        style={styles.chartStyle}
+        fromZero={false}
+        segments={4}
+        onDataPointClick={handleDataPointClick}   // nokta → tooltip
+        withVerticalLabels={true} 
+        withHorizontalLabels={false}
+      />
+
+      {/* Saat etiketlerinin hizasında görünmez dokunma bandı */}
+      <View style={styles.labelTapRow} pointerEvents="box-none">
+        {chartData.labels.map((_, i) => (
+          <Pressable
+            key={i}
+            onPress={() => openInfo(i)}            // saat yazısı → info kartı
+            style={{ width: segmentWidth, height: LABEL_TAP_HEIGHT }}
+            hitSlop={6}
+          />
+        ))}
+      </View>
+    </View>
+  )}
+</ScrollView>
+
                             </View>
-                            {/* Saat şeridi – tıklanabilir (YENİ) */}
-                            <View style={styles.hourStripContainer}>
-                            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                                {saatlikVeri.slice(0, forecastHoursToShow).map((h, idx) => {
-                                const isSel = selectedHourIndex === idx;
-                                return (
-                                    <TouchableOpacity
-                                    key={idx}
-                                    style={[styles.hourChip, isSel && styles.hourChipSelected]}
-                                    onPress={() => (isSel ? closeInfo() : openInfo(idx))}
-                                    activeOpacity={0.9}
-                                    >
-                                    <Text style={[styles.hourChipText, isSel && styles.hourChipTextSelected]}>
-                                        {idx === 0 ? 'Şimdi' : h.saat}
-                                    </Text>
-                                    </TouchableOpacity>
-                                );
-                                })}
-                            </ScrollView>
-                            </View>
+                            
 
                             
                             <View style={styles.buttonContainer}>
@@ -609,5 +636,16 @@ hourChip: {
 hourChipSelected: { backgroundColor: 'rgba(59,130,246,0.2)', borderColor: '#3b82f6' },
 hourChipText: { fontSize: 13, fontWeight: '700', color: '#94a3b8' },
 hourChipTextSelected: { color: '#2563eb' },
+
+labelTapRow: { // SEFFAF
+  position: 'absolute',
+  left: 0,
+  right: 0,
+  bottom: 0,        // X etiketlerinin çizildiği bant
+  height: 36,       // LABEL_TAP_HEIGHT ile uyumlu
+  flexDirection: 'row',
+  zIndex: 10,
+  backgroundColor: 'transparent',
+},
 
 });
