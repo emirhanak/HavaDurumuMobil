@@ -7,6 +7,8 @@ import { Cloud, Thermometer, Droplets, Wind, Eye, Sun, CloudRain, X, CheckCircle
 import { useSettings } from '@/context/SettingsContext';
 import WeatherAnimation from './WeatherAnimation';
 import { LineChartData } from "react-native-chart-kit/dist/line-chart/LineChart";
+import type { ViewStyle } from 'react-native';
+
 
 // --- Arayüz Tanımlamaları ---
 interface Sehir { id: string; ad: string; enlem: number; boylam: number; sicaklik: number; }
@@ -29,6 +31,8 @@ interface HavaDurumuDetayProps { sehir: Sehir; weatherData: WeatherData | null; 
 
 const { width } = Dimensions.get('window');
 const Y_AXIS_WIDTH = 40;
+const LABEL_TAP_HEIGHT = 32; // ← buraya, component DIŞINA
+
 
 export default function HavaDurumuDetay({ sehir, weatherData }: HavaDurumuDetayProps) {
     const { unit, colors, theme } = useSettings();
@@ -45,7 +49,6 @@ export default function HavaDurumuDetay({ sehir, weatherData }: HavaDurumuDetayP
     const [forecastHoursToShow, setForecastHoursToShow] = React.useState(24);
     // --- Saat seçimi & info kart animasyonu (YENİ) ---
     const [selectedHourIndex, setSelectedHourIndex] = React.useState<number | null>(null);
-    const infoAnim = React.useRef(new Animated.Value(0)).current;
 
  // ⬇️ ANDROID'DE LayoutAnimation'ı AÇ — BURAYA KOY
   React.useEffect(() => {
@@ -54,29 +57,21 @@ export default function HavaDurumuDetay({ sehir, weatherData }: HavaDurumuDetayP
     }
   }, []);
   // ⬆️
-
 const openInfo = (i: number) => {
-  // Modal'ın yukarı doğru "genişlemesini" yumuşat
-  LayoutAnimation.configureNext(LayoutAnimation.create(
-    260, // biraz daha yavaş
-    LayoutAnimation.Types.easeInEaseOut,
-    LayoutAnimation.Properties.opacity
-  ));
+  // Modal “yukarı uzuyor” gibi yumuşak layout animasyonu
+  LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+
+  setTooltipData(null);           // 👈 varsa tooltip kapat
   setSelectedHourIndex(i);
-  infoAnim.setValue(0);
-  Animated.timing(infoAnim, { toValue: 1, duration: 260, useNativeDriver: true }).start();
 };
 
 const closeInfo = () => {
-  LayoutAnimation.configureNext(LayoutAnimation.create(
-    180,
-    LayoutAnimation.Types.easeInEaseOut,
-    LayoutAnimation.Properties.opacity
-  ));
-  Animated.timing(infoAnim, { toValue: 0, duration: 150, useNativeDriver: true }).start(() =>
-    setSelectedHourIndex(null)
-  );
+  LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+
+  setSelectedHourIndex(null);
 };
+
+
 
     // --- Günlük (ek 6 saat) AI ortalama doğruluk (YENİ) ---
     const dailyAiAvg = React.useMemo(() => {
@@ -104,7 +99,6 @@ const closeInfo = () => {
             setTooltipData(newData);
             Animated.spring(tooltipAnim, { toValue: 1, friction: 7, useNativeDriver: true }).start();
         }
-        openInfo(data.index);
 
     };
 
@@ -139,40 +133,35 @@ const convertTemperature = (celsius?: number | null): number => {
 
     const cardStyle = theme === 'light' ? styles.cardShadow : {};
     const DATA_POINT_WIDTH = 60;
+const [loadingPhase, setLoadingPhase] =
+  React.useState<'prep' | 'ready'>('prep');
 
-    const showLoadingModal = () => {
-        setLoadingModalVisible(true);
-        loadingAnim.setValue(0);
-        checkAnim.setValue(0);
-        pulseAnim.setValue(1);
-        const pulseAnimation = Animated.loop(Animated.sequence([
-            Animated.timing(pulseAnim, { toValue: 1.2, duration: 800, useNativeDriver: true }),
-            Animated.timing(pulseAnim, { toValue: 1, duration: 800, useNativeDriver: true })
-        ]));
-        const loadingAnimation = Animated.loop(Animated.timing(loadingAnim, { toValue: 1, duration: 1000, useNativeDriver: true }));
-        pulseAnimation.start();
-        loadingAnimation.start();
-        setTimeout(() => {
-            pulseAnimation.stop();
-            loadingAnimation.stop();
-            Animated.sequence([
-                Animated.timing(loadingAnim, { toValue: 0, duration: 200, useNativeDriver: true }),
-                Animated.spring(checkAnim, { toValue: 1, friction: 6, useNativeDriver: true })
-            ]).start(() => {
-                setTimeout(() => {
-                    setLoadingModalVisible(false);
-                    setForecastHoursToShow(30);
-                }, 300);
-            });
-        }, 1000);
-    };
+const showLoadingModal = () => {
+  setLoadingPhase('prep');
+  setLoadingModalVisible(true);
 
-    const closeModal = () => {
-        setTooltipData(null);
-        setModalVisible(false);
-        setForecastHoursToShow(24);
-        setIsAtEndOfScroll(false);
-    };
+  setTimeout(() => {
+    setLoadingPhase('ready');
+    setSelectedHourIndex(null); // info kart kapansın
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut); // 👈 EKLE
+    setForecastHoursToShow(30); // 2. grafiğe geç
+
+    setTimeout(() => {
+      setLoadingModalVisible(false);
+    }, 400); // “Hazır!” yazısı kısa görünsün
+  }, 700);   // hazırlama kısa bekleme
+};
+
+
+
+   const closeModal = () => {
+  setTooltipData(null);
+  setSelectedHourIndex(null);   // ← ekle
+  setModalVisible(false);
+  setForecastHoursToShow(24);
+  setIsAtEndOfScroll(false);
+};
+
 // Konum: HavaDurumuDetay.tsx
 const getChartData = (): LineChartData => {
   const emptyData: LineChartData = { labels: [], datasets: [{ data: [] }] };
@@ -240,6 +229,12 @@ const LABEL_TAP_HEIGHT = 32;
 // Her saat etiketi için segment genişliği (grafik toplam genişliğine böl)
 const labelCount = chartData.labels?.length ?? 0;
 const segmentWidth = labelCount ? (totalChartWidth / labelCount) : DATA_POINT_WIDTH;
+// ⬇️ return'dan HEMEN ÖNCE EKLE
+const lineChartStyle = React.useMemo<ViewStyle>(() => {
+  const base = StyleSheet.flatten(styles.chartStyle) as ViewStyle;
+  return forecastHoursToShow > 24 ? { ...base, paddingBottom: 12 } : base;
+}, [forecastHoursToShow]);
+// ⬆️ EKLEME BİTİŞİ
 
     return (
         <View style={styles.container}>
@@ -282,15 +277,14 @@ const segmentWidth = labelCount ? (totalChartWidth / labelCount) : DATA_POINT_WI
                                 </TouchableOpacity>
                             </View>
                             {/* Seçili saat bilgi kartı (YENİ) */}
-                            {selectedHourIndex !== null && (
-                            <Animated.View
+                            {forecastHoursToShow > 24 && selectedHourIndex !== null && (
+                            <View
                                 style={[
                                 styles.infoCard,
                                 {
                                     backgroundColor: colors.cardBackground,
                                     borderColor: colors.borderColor,
-                                    opacity: infoAnim,
-                                    transform: [{ scale: infoAnim }],
+                                   
                                 },
                                 ]}
                             >
@@ -351,7 +345,7 @@ const segmentWidth = labelCount ? (totalChartWidth / labelCount) : DATA_POINT_WI
                                     </View>
                                 );
                                 })()}
-                            </Animated.View>
+                            </View>
                             )}
 
                             <View style={styles.chartContainer}>
@@ -367,11 +361,21 @@ const segmentWidth = labelCount ? (totalChartWidth / labelCount) : DATA_POINT_WI
   horizontal
   showsHorizontalScrollIndicator={false}
   onScroll={({ nativeEvent }) => {
-    const { layoutMeasurement, contentOffset, contentSize } = nativeEvent;
-    const isEnd = layoutMeasurement.width + contentOffset.x >= contentSize.width - 20;
+  const { layoutMeasurement, contentOffset, contentSize } = nativeEvent;
+  const isEnd = layoutMeasurement.width + contentOffset.x >= contentSize.width - 20;
+ 
+
+  
+
+  if (isEnd !== isAtEndOfScroll) {
+    // modal altındaki buton görünür/gizlenir → yumuşak büyüme/kısalma
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+
     setIsAtEndOfScroll(isEnd);
-    scrollX.current = nativeEvent.contentOffset.x;
-  }}
+  }
+  scrollX.current = nativeEvent.contentOffset.x;
+}}
+
   scrollEventThrottle={16}
   style={styles.chartScrollView}
 >
@@ -382,25 +386,32 @@ const segmentWidth = labelCount ? (totalChartWidth / labelCount) : DATA_POINT_WI
         width={totalChartWidth}
         height={250}
         chartConfig={chartConfig}
-        style={styles.chartStyle}
+        style={lineChartStyle}
+
         fromZero={false}
         segments={4}
         onDataPointClick={handleDataPointClick}   // nokta → tooltip
-        withVerticalLabels={true} 
-        withHorizontalLabels={false}
+         withVerticalLabels={true}   
+  withHorizontalLabels={false} 
+
       />
 
-      {/* Saat etiketlerinin hizasında görünmez dokunma bandı */}
-      <View style={styles.labelTapRow} pointerEvents="box-none">
-        {chartData.labels.map((_, i) => (
-          <Pressable
-            key={i}
-            onPress={() => openInfo(i)}            // saat yazısı → info kartı
-            style={{ width: segmentWidth, height: LABEL_TAP_HEIGHT }}
-            hitSlop={6}
-          />
-        ))}
-      </View>
+     {/* Saat etiketlerinin hizasında görünmez dokunma bandı – sadece 2. grafikte */}
+{forecastHoursToShow > 24 && (
+  <View style={styles.labelTapRow} pointerEvents="box-none">
+    {chartData.labels.map((_, i) => (
+      <Pressable
+        key={i}
+        onPress={() => openInfo(i)}   // saat yazısına basınca info kartı aç
+        style={{ width: segmentWidth, height: LABEL_TAP_HEIGHT }}
+        hitSlop={6}
+      />
+    ))}
+  </View>
+)}
+
+
+
     </View>
   )}
 </ScrollView>
@@ -462,20 +473,18 @@ const segmentWidth = labelCount ? (totalChartWidth / labelCount) : DATA_POINT_WI
                                     <CheckCircle size={60} color="#4CAF50" />
                                 </Animated.View>
                             </View>
-                            
-                            <Animated.Text style={[
-                                styles.loadingText, 
-                                { color: colors.text, opacity: loadingAnim }
-                            ]}>
-                                AI Tahmini Yükleniyor...
-                            </Animated.Text>
-                            
-                            <Animated.Text style={[
-                                styles.successText, 
-                                { color: '#4CAF50', opacity: checkAnim }
-                            ]}>
-                                Tahmin Hazır!
-                            </Animated.Text>
+                            {/* Hazırlanıyor */}
+{loadingPhase === 'prep' ? (
+  <Text style={[styles.loadingText, { color: colors.text }]}>
+    AI destekli grafik hazırlanıyor...
+  </Text>
+) : (
+  <Text style={[styles.successText, { color: '#4CAF50' }]}>
+    Hazır!
+  </Text>
+)}
+
+
                         </Animated.View>
                     </View>
                 </Modal>
@@ -550,7 +559,7 @@ const styles = StyleSheet.create({
     closeButtonText: { fontSize: 16, fontWeight: '600' },
     tooltipContainer: { position: 'absolute', backgroundColor: '#2c3e50', paddingVertical: 6, paddingHorizontal: 12, borderRadius: 8, zIndex: 20 },
     tooltipText: { color: 'white', fontWeight: 'bold', fontSize: 14 },
-    buttonContainer: { flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center', width: '100%', marginTop: 20, },
+    buttonContainer: { flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center', width: '100%', marginTop: 20,minHeight: 48, },
     predictButton: { backgroundColor: '#ff4757', paddingVertical: 12, paddingHorizontal: 20, borderRadius: 20, elevation: 2, },
     predictButtonText: { color: 'white', fontWeight: 'bold', fontSize: 16, },
     closeButton: { borderRadius: 20, paddingVertical: 12, paddingHorizontal: 30, elevation: 2, },
@@ -605,6 +614,7 @@ const styles = StyleSheet.create({
   borderWidth: StyleSheet.hairlineWidth,
   padding: 12,
   marginBottom: 8,
+  marginTop: 6,
   alignSelf: 'center',
   shadowColor: '#000',
   shadowOpacity: 0.12,
@@ -642,7 +652,7 @@ labelTapRow: { // SEFFAF
   left: 0,
   right: 0,
   bottom: 0,        // X etiketlerinin çizildiği bant
-  height: 36,       // LABEL_TAP_HEIGHT ile uyumlu
+  height: LABEL_TAP_HEIGHT, // 👈 36 yerine bu
   flexDirection: 'row',
   zIndex: 10,
   backgroundColor: 'transparent',
