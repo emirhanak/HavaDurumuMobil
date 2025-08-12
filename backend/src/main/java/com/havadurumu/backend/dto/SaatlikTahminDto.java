@@ -10,6 +10,7 @@ public class SaatlikTahminDto {
     // Değişen Alanlar
     private Double aiSicaklikTahmini; // Bizim AI modelimizin tahmini
     private Double dogrulukYuzdesi;   // YENİ: Başarı oranımız
+    
 
     // Getters ve Setters...
     public String getSaat() { return saat; }

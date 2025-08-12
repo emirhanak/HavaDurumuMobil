@@ -19,6 +19,8 @@ interface SaatlikTahmin {
     aiSicaklikTahmini?: number | null;
     aiNemTahmini?: number | null;
     sapmaOrani?: number | null;
+    dogrulukYuzdesi?: number | null;   // << BUNU EKLE
+
 }
 interface GunlukTahmin { gun: string; enDusuk: number; enYuksek: number; durumKodu: number; }
 interface WeatherData { anlikHavaDurumu: AnlikHavaDurumu; saatlikTahmin: SaatlikTahmin[]; gunlukTahmin: GunlukTahmin[]; }
@@ -40,6 +42,29 @@ export default function HavaDurumuDetay({ sehir, weatherData }: HavaDurumuDetayP
     const scrollX = React.useRef(0);
     const [isAtEndOfScroll, setIsAtEndOfScroll] = React.useState(false);
     const [forecastHoursToShow, setForecastHoursToShow] = React.useState(24);
+    // --- Saat seçimi & info kart animasyonu (YENİ) ---
+    const [selectedHourIndex, setSelectedHourIndex] = React.useState<number | null>(null);
+    const infoAnim = React.useRef(new Animated.Value(0)).current;
+
+    const openInfo = (i: number) => {
+    setSelectedHourIndex(i);
+    infoAnim.setValue(0);
+    Animated.spring(infoAnim, { toValue: 1, useNativeDriver: true, friction: 7 }).start();
+    };
+    const closeInfo = () => {
+    Animated.timing(infoAnim, { toValue: 0, duration: 150, useNativeDriver: true }).start(() =>
+        setSelectedHourIndex(null)
+    );
+    };
+    // --- Günlük (ek 6 saat) AI ortalama doğruluk (YENİ) ---
+    const dailyAiAvg = React.useMemo(() => {
+    const slice = (weatherData?.saatlikTahmin || []).slice(24, 30);
+    const vals = slice.map(s => s.dogrulukYuzdesi).filter(v => typeof v === 'number') as number[];
+    if (!vals.length) return null;
+    return vals.reduce((a, b) => a + b, 0) / vals.length;
+    }, [weatherData]);
+
+
 
     if (!weatherData || !sehir || !weatherData.anlikHavaDurumu) return null;
 
@@ -59,11 +84,14 @@ export default function HavaDurumuDetay({ sehir, weatherData }: HavaDurumuDetayP
         }
     };
 
-    const convertTemperature = (celsius: number): number => {
-        if (celsius === null || celsius === undefined) return 0;
-        if (unit === 'F') return parseFloat(((celsius * 9 / 5) + 32).toFixed(1));
-        return parseFloat(celsius.toFixed(1));
-    };
+    // ESKİ (sende null/undefined için 0 döndürüyordu) --> YERİNE BUNU KOY
+// HavaDurumuDetay.tsx
+const convertTemperature = (celsius?: number | null): number => {
+  if (celsius == null) return 0; // (artık ilk 24'te null gelmiyor ama kalsın)
+  if (unit === 'F') return +(((celsius * 9) / 5) + 32).toFixed(1);
+  return +celsius.toFixed(1);
+};
+
 
     const renderWeatherIcon = (code: number, size: number) => {
         if(code === 9999) return <Text style={{fontSize: size-4, color: colors.text}}>🔮</Text>;
@@ -121,29 +149,27 @@ export default function HavaDurumuDetay({ sehir, weatherData }: HavaDurumuDetayP
         setForecastHoursToShow(24);
         setIsAtEndOfScroll(false);
     };
+// Konum: HavaDurumuDetay.tsx
+const getChartData = (): LineChartData => {
+  const emptyData: LineChartData = { labels: [], datasets: [{ data: [] }] };
+  if (!saatlikVeri || saatlikVeri.length === 0) return emptyData;
 
-    const getChartData = (): LineChartData => {
-        const emptyData: LineChartData = { labels: [], datasets: [{ data: [] }] };
-        if (!saatlikVeri || saatlikVeri.length === 0) return emptyData;
-        const dataSlice = saatlikVeri.slice(0, forecastHoursToShow);
-        const labels = dataSlice.map((item) => item.saat);
-        const anaVeri = dataSlice.map((item, index) => {
-            if (forecastHoursToShow > 24 && index >= 24) return null;
-            return convertTemperature(item.sicaklik);
-        });
-        const aiVeri = dataSlice.map((item, index) => {
-            if (forecastHoursToShow <= 24 || index < 23 || item.aiSicaklikTahmini == null) return null;
-            if (index === 23) return convertTemperature(saatlikVeri[23].sicaklik);
-            return convertTemperature(item.aiSicaklikTahmini);
-        });
-        return {
-            labels: labels,
-            datasets: [
-                { data: anaVeri as number[], color: (opacity = 1) => `rgba(135, 206, 250, ${opacity})`, strokeWidth: 2, withDots: true },
-                { data: aiVeri as number[], color: (opacity = 1) => `rgba(255, 71, 87, ${opacity})`, strokeWidth: 2, withDots: forecastHoursToShow > 24 }
-            ]
-        };
-    };
+  const dataSlice = saatlikVeri.slice(0, forecastHoursToShow);
+  const labels = dataSlice.map(i => i.saat);
+
+  // Mavi: API | Yeşil: AI (artık backend 0–24'te dolduruyor)
+  const apiData = dataSlice.map(i => convertTemperature(i.sicaklik));
+  const aiData  = dataSlice.map(i => convertTemperature(i.aiSicaklikTahmini as number | null));
+
+  return {
+    labels,
+    datasets: [
+      { data: apiData, color: (o=1) => `rgba(37,99,235,${o})`, strokeWidth: 2, withDots: true },
+      { data: aiData,  color: (o=1) => `rgba(16,185,129,${o})`, strokeWidth: 2, withDots: true },
+    ],
+  };
+};
+
 
     const chartConfig = {
         backgroundGradientFrom: colors.cardBackground,
@@ -161,10 +187,14 @@ export default function HavaDurumuDetay({ sehir, weatherData }: HavaDurumuDetayP
     const chartData = getChartData();
     const totalChartWidth = Math.max(width - 80, (chartData.labels?.length || 0) * DATA_POINT_WIDTH);
     
-    const allTemperatures = saatlikVeri.slice(0, forecastHoursToShow).map(item => item.sicaklik);
-    const minTemp = allTemperatures.length > 0 ? Math.floor(Math.min(...allTemperatures)) : 0;
-    const maxTemp = allTemperatures.length > 0 ? Math.ceil(Math.max(...allTemperatures)) : 30;
-    
+const slice = saatlikVeri.slice(0, forecastHoursToShow);
+const allTemperatures = slice
+  .flatMap(i => [i.sicaklik, i.aiSicaklikTahmini])
+  .filter(v => typeof v === 'number' && Number.isFinite(v as number)) as number[];
+
+const minTemp = allTemperatures.length ? Math.floor(Math.min(...allTemperatures)) : 0;
+const maxTemp = allTemperatures.length ? Math.ceil(Math.max(...allTemperatures))  : 30;
+
     const generateYAxisLabels = () => {
         if(minTemp === maxTemp) return [`${minTemp}°`];
         const labels = [];
@@ -219,7 +249,79 @@ export default function HavaDurumuDetay({ sehir, weatherData }: HavaDurumuDetayP
                                     <X size={24} color={colors.text} />
                                 </TouchableOpacity>
                             </View>
-                            
+                            {/* Seçili saat bilgi kartı (YENİ) */}
+                            {selectedHourIndex !== null && (
+                            <Animated.View
+                                style={[
+                                styles.infoCard,
+                                {
+                                    backgroundColor: colors.cardBackground,
+                                    borderColor: colors.borderColor,
+                                    opacity: infoAnim,
+                                    transform: [{ scale: infoAnim }],
+                                },
+                                ]}
+                            >
+                                {(() => {
+                                const dataSlice = (weatherData?.saatlikTahmin || []).slice(0, forecastHoursToShow);
+                                const h = dataSlice[selectedHourIndex!];
+                                const api = h ? convertTemperature(h.sicaklik) : null;
+                                const ai  = h && h.aiSicaklikTahmini != null ? convertTemperature(h.aiSicaklikTahmini) : null;
+                                const acc = h?.dogrulukYuzdesi ?? null;
+
+                                return (
+                                    <View>
+                                    <Text style={[styles.infoTitle, { color: colors.text }]}>
+                                        {h?.saat ?? '--:--'} için detay
+                                    </Text>
+
+                                    {/* Legend */}
+                                    <View style={styles.legendRow}>
+                                        <View style={[styles.legendDot, { backgroundColor: '#2563eb' }]} />
+                                        <Text style={[styles.legendText, { color: colors.text }]}>API</Text>
+                                        <View style={{ width: 12 }} />
+                                        <View style={[styles.legendDot, { backgroundColor: '#10b981' }]} />
+                                        <Text style={[styles.legendText, { color: colors.text }]}>AI</Text>
+                                    </View>
+
+                                    {/* Değerler */}
+                                    <View style={styles.infoRow}>
+                                        <Text style={[styles.infoLabel, { color: colors.icon }]}>API Tahmin</Text>
+                                        <Text style={[styles.infoValue, { color: colors.text }]}>
+                                        {api != null ? `${api.toFixed(1)}°` : '—'}
+                                        </Text>
+                                    </View>
+                                    <View style={styles.infoRow}>
+                                        <Text style={[styles.infoLabel, { color: colors.icon }]}>AI Tahmin</Text>
+                                        <Text style={[styles.infoValue, { color: colors.text }]}>
+                                        {ai != null ? `${ai.toFixed(1)}°` : '—'}
+                                        </Text>
+                                    </View>
+                                    <View style={styles.infoRow}>
+                                        <Text style={[styles.infoLabel, { color: colors.icon }]}>AI Başarı</Text>
+                                        <Text style={[styles.infoBadge, { borderColor: colors.borderColor, color: colors.text }]}>
+                                        {typeof acc === 'number' ? `%${acc.toFixed(0)}` : '—'}
+                                        </Text>
+                                    </View>
+
+                                    <View style={[styles.infoRow, { marginTop: 8 }]}>
+                                        <Text style={[styles.infoLabel, { color: colors.icon }]}>Günlük AI Ortalama</Text>
+                                        <Text style={[styles.infoBadge, { borderColor: colors.borderColor, color: colors.text }]}>
+                                        {typeof dailyAiAvg === 'number' ? `%${dailyAiAvg.toFixed(0)}` : '—'}
+                                        </Text>
+                                    </View>
+
+                                    <View style={{ alignItems: 'flex-end', marginTop: 10 }}>
+                                        <TouchableOpacity onPress={closeInfo} style={styles.infoCloseBtn}>
+                                        <Text style={styles.infoCloseText}>Kapat</Text>
+                                        </TouchableOpacity>
+                                    </View>
+                                    </View>
+                                );
+                                })()}
+                            </Animated.View>
+                            )}
+
                             <View style={styles.chartContainer}>
                                 <View style={[styles.yAxisContainer, { width: Y_AXIS_WIDTH }]}>
                                     {yAxisLabels.map((label, index) => (
@@ -247,7 +349,7 @@ export default function HavaDurumuDetay({ sehir, weatherData }: HavaDurumuDetayP
                                             width={totalChartWidth} 
                                             height={250} 
                                             chartConfig={chartConfig}
-                                            bezier 
+                                            //bezier 
                                             style={styles.chartStyle}
                                             fromZero={false}
                                             segments={4}
@@ -258,6 +360,27 @@ export default function HavaDurumuDetay({ sehir, weatherData }: HavaDurumuDetayP
                                     )}
                                 </ScrollView>
                             </View>
+                            {/* Saat şeridi – tıklanabilir (YENİ) */}
+                            <View style={styles.hourStripContainer}>
+                            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                                {saatlikVeri.slice(0, forecastHoursToShow).map((h, idx) => {
+                                const isSel = selectedHourIndex === idx;
+                                return (
+                                    <TouchableOpacity
+                                    key={idx}
+                                    style={[styles.hourChip, isSel && styles.hourChipSelected]}
+                                    onPress={() => (isSel ? closeInfo() : openInfo(idx))}
+                                    activeOpacity={0.9}
+                                    >
+                                    <Text style={[styles.hourChipText, isSel && styles.hourChipTextSelected]}>
+                                        {idx === 0 ? 'Şimdi' : h.saat}
+                                    </Text>
+                                    </TouchableOpacity>
+                                );
+                                })}
+                            </ScrollView>
+                            </View>
+
                             
                             <View style={styles.buttonContainer}>
                                 {isAtEndOfScroll && forecastHoursToShow < 30 && saatlikVeri.length >= 30 && (
@@ -447,4 +570,44 @@ const styles = StyleSheet.create({
     detayKartIcon: { alignItems: 'center', marginBottom: 8 },
     detayKartBaslik: { fontSize: 13, fontWeight: '600', marginBottom: 4, letterSpacing: 0.5, textAlign: 'center' },
     detayKartDeger: { fontSize: 24, fontWeight: '400', flex: 1, textAlign: 'center' },
+
+
+    infoCard: {
+  width: '100%',
+  borderRadius: 14,
+  borderWidth: StyleSheet.hairlineWidth,
+  padding: 12,
+  marginBottom: 8,
+  alignSelf: 'center',
+  shadowColor: '#000',
+  shadowOpacity: 0.12,
+  shadowRadius: 8,
+  shadowOffset: { width: 0, height: 4 },
+  elevation: 3,
+},
+infoTitle: { fontSize: 16, fontWeight: '700', marginBottom: 6 },
+legendRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 6 },
+legendDot: { width: 10, height: 10, borderRadius: 5, marginRight: 6 },
+legendText: { fontSize: 12, opacity: 0.8 },
+infoRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 },
+infoLabel: { fontSize: 13, fontWeight: '600', opacity: 0.8 },
+infoValue: { fontSize: 16, fontWeight: '700' },
+infoBadge: { fontSize: 14, fontWeight: '700', paddingHorizontal: 10, paddingVertical: 4, borderWidth: 1, borderRadius: 12 },
+infoCloseBtn: { backgroundColor: '#3b82f6', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 10 },
+infoCloseText: { color: 'white', fontWeight: '700' },
+
+hourStripContainer: { width: '100%', marginTop: 10, marginBottom: 6 },
+hourChip: {
+  paddingHorizontal: 12,
+  paddingVertical: 8,
+  borderRadius: 999,
+  borderWidth: StyleSheet.hairlineWidth,
+  borderColor: '#94a3b8',
+  marginRight: 8,
+  backgroundColor: 'rgba(148,163,184,0.12)',
+},
+hourChipSelected: { backgroundColor: 'rgba(59,130,246,0.2)', borderColor: '#3b82f6' },
+hourChipText: { fontSize: 13, fontWeight: '700', color: '#94a3b8' },
+hourChipTextSelected: { color: '#2563eb' },
+
 });

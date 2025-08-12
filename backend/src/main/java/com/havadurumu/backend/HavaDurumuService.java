@@ -1,5 +1,6 @@
 // Dosya: src/main/java/com/havadurumu/backend/HavaDurumuService.java
 package com.havadurumu.backend;
+import java.util.stream.IntStream;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -79,6 +80,29 @@ public class HavaDurumuService {
             }
             // ✅ DEĞİŞİKLİK: Artık listeyi 24 saat ile sınırlamıyoruz.
             // if (saatlik.size() > 24) saatlik = saatlik.subList(0,24);
+          // --- DEBUG + backfill (ilk 24 saat) ---
+int limit = Math.min(24, saatlik.size());
+
+long before = IntStream.range(0, limit)
+        .filter(i -> saatlik.get(i).getAiSicaklikTahmini() == null)
+        .count();
+
+backfillAiForFirst24Hours(saatlik);
+
+long after = IntStream.range(0, limit)
+        .filter(i -> saatlik.get(i).getAiSicaklikTahmini() == null)
+        .count();
+
+System.out.println("AI backfill (0-24): doldurulan=" + (before - after) +
+        ", önceNull=" + before + ", sonraNull=" + after);
+
+for (int i = 0; i < Math.min(5, limit); i++) {
+    SaatlikTahminDto h = saatlik.get(i);
+    System.out.println("[" + i + "] " + h.getSaat() +
+            "  api=" + h.getSicaklik() +
+            "  ai=" + h.getAiSicaklikTahmini());
+}
+// --- /DEBUG ---
 
             // — Günlük 1d liste —
             List<GunlukTahminDto> gunluk = new ArrayList<>();
@@ -120,4 +144,20 @@ public class HavaDurumuService {
             default -> "Bilinmeyen";
         };
     }
+    // İlk 24 saatte AI boşsa, AI = API. 24+ saatlik kısma asla dokunma.
+private void backfillAiForFirst24Hours(List<SaatlikTahminDto> saatlikTahmin) {
+    if (saatlikTahmin == null || saatlikTahmin.isEmpty()) return;
+
+    int limit = Math.min(24, saatlikTahmin.size());
+    for (int i = 0; i < limit; i++) {
+        SaatlikTahminDto h = saatlikTahmin.get(i);
+
+        // AI boşsa, API sıcaklığıyla doldur (sicaklik double olduğu için null kontrolü gerekmez)
+        if (h.getAiSicaklikTahmini() == null) {
+            h.setAiSicaklikTahmini(h.getSicaklik());
+            // h.setDogrulukYuzdesi(100.0); // istersen
+        }
+    }
 }
+}
+
