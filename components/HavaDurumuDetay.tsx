@@ -1,5 +1,7 @@
 import { LineChart } from "react-native-chart-kit";
 import React from 'react';
+import { BottomSheetModal, BottomSheetModalProvider, BottomSheetBackdrop } from '@gorhom/bottom-sheet';
+
 
 import { View, Text, StyleSheet, ScrollView, Dimensions, TouchableOpacity, Modal, Animated, Pressable, LayoutAnimation, Platform, UIManager } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -8,6 +10,7 @@ import { useSettings } from '@/context/SettingsContext';
 import WeatherAnimation from './WeatherAnimation';
 import { LineChartData } from "react-native-chart-kit/dist/line-chart/LineChart";
 import type { ViewStyle } from 'react-native';
+import 'react-native-gesture-handler';
 
 
 // --- Arayüz Tanımlamaları ---
