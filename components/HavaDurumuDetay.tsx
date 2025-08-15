@@ -226,8 +226,7 @@ const maxTemp = allTemperatures.length ? Math.ceil(Math.max(...allTemperatures))
     };
     const yAxisLabels = generateYAxisLabels();
 
-    // X etiketleri için görünmez dokunma bandı yüksekliği
-const LABEL_TAP_HEIGHT = 32;
+
 
 // Her saat etiketi için segment genişliği (grafik toplam genişliğine böl)
 const labelCount = chartData.labels?.length ?? 0;
