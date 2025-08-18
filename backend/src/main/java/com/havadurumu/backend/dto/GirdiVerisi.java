@@ -2,9 +2,18 @@ package com.havadurumu.backend.dto;
 
 public class GirdiVerisi {
     private String ds;
+        private String saat;       // ISO-8601 ya da "HH:mm"
+
     private double sicaklik;
     private double nem;
     private int hava_kodu;
+
+     public String getSaat() { return saat; }
+    public void setSaat(String saat) { this.saat = saat; }
+
+    public void setSicaklik(Double sicaklik) { this.sicaklik = sicaklik; }
+
+    public void setNem(Double nem) { this.nem = nem; }
 
     public GirdiVerisi() {}
 

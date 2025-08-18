@@ -128,6 +128,13 @@ for (int i = 0; i < Math.min(5, limit); i++) {
             return null;
         }
     }
+    // HavaDurumuService.java  (getWeather(...) ALTINA EKLE)
+public List<SaatlikTahminDto> getSaatlik24(double lat, double lon) {
+    HavaDurumuCevapDto c = getWeather(String.valueOf(lat), String.valueOf(lon));
+    if (c == null || c.getSaatlikTahmin() == null) return List.of();
+    List<SaatlikTahminDto> s = c.getSaatlikTahmin();
+    return s.size() > 24 ? s.subList(0, 24) : s;
+}
 
     private String weatherCodeToTurkish(int code) {
         return switch (code) {

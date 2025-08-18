@@ -3,6 +3,24 @@ package com.havadurumu.backend.dto;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 public class TahminCiktisi {
+
+     private String isoTime;           // "2025-08-18T12:00:00"
+    private String saat;              // "12:00"
+    private Double sicaklikTahmini;   // °C
+    private Double nemTahmini;        // %
+
+    public String getIsoTime() { return isoTime; }
+    public void setIsoTime(String isoTime) { this.isoTime = isoTime; }
+
+    public String getSaat() { return saat; }
+    public void setSaat(String saat) { this.saat = saat; }
+
+    public Double getSicaklikTahmini() { return sicaklikTahmini; }
+    public void setSicaklikTahmini(Double v) { this.sicaklikTahmini = v; }
+
+    public Double getNemTahmini() { return nemTahmini; }
+    public void setNemTahmini(Double v) { this.nemTahmini = v; }
+
     private String ds;
 
     @JsonProperty("yhat_temp") // JSON'daki 'yhat_temp' alanını bu değişkene ata

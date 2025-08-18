@@ -1,15 +1,22 @@
-// src/main/java/com/havadurumu/backend/config/AppConfig.java
+// backend/src/main/java/com/havadurumu/backend/config/AppConfig.java
 package com.havadurumu.backend.config;
 
+import java.time.Duration;
+import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.cache.annotation.EnableCaching;
 import org.springframework.web.client.RestTemplate;
 
 @Configuration
+@EnableCaching
 public class AppConfig {
 
-    @Bean
-    public RestTemplate restTemplate() {
-        return new RestTemplate();
-    }
+  @Bean
+  public RestTemplate restTemplate(RestTemplateBuilder builder) {
+    return builder
+        .setConnectTimeout(Duration.ofSeconds(8))
+        .setReadTimeout(Duration.ofSeconds(12))
+        .build();
+  }
 }

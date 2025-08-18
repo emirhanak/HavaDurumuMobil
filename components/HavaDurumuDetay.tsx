@@ -1,6 +1,10 @@
 import { LineChart } from "react-native-chart-kit";
 import React from 'react';
 import { BottomSheetModal, BottomSheetModalProvider, BottomSheetBackdrop } from '@gorhom/bottom-sheet';
+import VarTabs, { VarKey } from "@/components/VarTabs";
+import { VAR_META, round1, pctDiff } from "@/utils/format";
+import { useBlend } from "@/hooks/useBlend";
+
 
 
 import { View, Text, StyleSheet, ScrollView, Dimensions, TouchableOpacity, Modal, Animated, Pressable, LayoutAnimation, Platform, UIManager } from 'react-native';
@@ -52,6 +56,28 @@ export default function HavaDurumuDetay({ sehir, weatherData }: HavaDurumuDetayP
     const [forecastHoursToShow, setForecastHoursToShow] = React.useState(24);
     // --- Saat seçimi & info kart animasyonu (YENİ) ---
     const [selectedHourIndex, setSelectedHourIndex] = React.useState<number | null>(null);
+    // ✅ EKLE: sekme seçimi ve /blend verisi
+// useBlend zaten importlu
+const [varKey, setVarKey] = React.useState<VarKey>("temp");
+// eski: const { data: blend, error: blendErr } = useBlend(...)
+const { data: blend, error: blendErr, baseUrl } = useBlend(sehir.ad, sehir.enlem, sehir.boylam);
+
+// (Eğer componentte loglayacaksan) ŞU useEffect'i güvenli hale getir:
+React.useEffect(() => {
+  console.log("[Detay] blend base:", baseUrl);
+  if (blend) console.log("[Detay] window_hours:", blend.window_hours, "len:", blend.timeline?.length);
+  if (blendErr) console.log("[Detay] blendErr:", blendErr);
+}, [blend, blendErr, baseUrl]);
+
+// Seçili saate ve seçili sekmeye göre {api, ai, delta}
+const tri = React.useMemo(() => {
+  if (!blend || typeof selectedHourIndex !== "number") return null;
+  const row = blend.timeline[selectedHourIndex] as any;
+  return row?.[varKey] ?? null; // örn row.temp / row.rhum ...
+}, [blend, selectedHourIndex, varKey]);
+
+const meta = VAR_META[varKey]; // label & unit
+
 
  // ⬇️ ANDROID'DE LayoutAnimation'ı AÇ — BURAYA KOY
   React.useEffect(() => {
@@ -107,10 +133,10 @@ const closeInfo = () => {
 
     // ESKİ (sende null/undefined için 0 döndürüyordu) --> YERİNE BUNU KOY
 // HavaDurumuDetay.tsx
-const convertTemperature = (celsius?: number | null): number => {
-  if (celsius == null) return 0; // (artık ilk 24'te null gelmiyor ama kalsın)
+const convertTemperature = (celsius?: number | null) => {
+  if (celsius == null) return null as any; // chart'ta nokta çizilmesin
   if (unit === 'F') return +(((celsius * 9) / 5) + 32).toFixed(1);
-  return +celsius.toFixed(1);
+  return +(+celsius).toFixed(1);
 };
 
 
@@ -169,13 +195,40 @@ const showLoadingModal = () => {
 const getChartData = (): LineChartData => {
   const emptyData: LineChartData = { labels: [], datasets: [{ data: [] }] };
   if (!saatlikVeri || saatlikVeri.length === 0) return emptyData;
+// HavaDurumuDetay.tsx -> getChartData() içinde:
 
-  const dataSlice = saatlikVeri.slice(0, forecastHoursToShow);
-  const labels = dataSlice.map(i => i.saat);
+const dataSlice = saatlikVeri.slice(0, forecastHoursToShow);
+const labels = dataSlice.map(i => i.saat);
 
-  // Mavi: API | Yeşil: AI (artık backend 0–24'te dolduruyor)
-  const apiData = dataSlice.map(i => convertTemperature(i.sicaklik));
-  const aiData  = dataSlice.map(i => convertTemperature(i.aiSicaklikTahmini as number | null));
+// 1) API
+const apiData = dataSlice.map(i => convertTemperature(i.sicaklik)) as any;
+
+// 2) AI: önce saatlikVeri.aiSicaklikTahmini, yoksa (ve 25–30 modundaysak) blend.timeline[i].temp.ai
+const aiData = dataSlice.map((h, idx) => {
+  // a) Java servisinden gelen (0–24 için backfill edilmiş) AI varsa onu kullan
+  if (h.aiSicaklikTahmini != null) {
+    return convertTemperature(h.aiSicaklikTahmini) as any;
+  }
+  // b) 25–30 görünümündeysek ve blend geldiyse oradan doldur
+  if (forecastHoursToShow > 24 && blend?.window_hours === 30) {
+    const row = (blend.timeline as any[])[idx];
+    const ai = row?.temp?.ai;
+    return ai == null ? null : (convertTemperature(ai) as any);
+  }
+  // c) iki durumda da yoksa boş bırak
+  return null as any;
+}) as any;
+
+return {
+  labels,
+  datasets: [
+    { data: apiData, color: (o=1) => `rgba(37,99,235,${o})`, strokeWidth: 2, withDots: true },
+    { data: aiData,  color: (o=1) => `rgba(16,185,129,${o})`, strokeWidth: 2, withDots: true },
+  ],
+};
+
+
+
 
   return {
     labels,
@@ -238,6 +291,7 @@ const lineChartStyle = React.useMemo<ViewStyle>(() => {
 }, [forecastHoursToShow]);
 // ⬆️ EKLEME BİTİŞİ
 
+
     return (
         <View style={styles.container}>
             <LinearGradient colors={theme === 'dark' ? ['#1e3c72', '#2a5298', '#4c6ef5'] : ['#87CEEB', '#B0E0E6']} style={styles.backgroundGradient} />
@@ -257,7 +311,12 @@ const lineChartStyle = React.useMemo<ViewStyle>(() => {
                             <TouchableOpacity
                                 key={index}
                                 style={styles.hourlyItem}
-                                onPress={() => { setModalVisible(true); }}
+                                onPress={() => { 
+                                setSelectedHourIndex(index);   // 👈 ekle
+                                setModalVisible(true); 
+                                }}
+
+
                                 activeOpacity={0.7}
                             >
                                 <Text style={[styles.hourlyTime, { color: colors.icon }]}>{index === 0 ? 'Şimdi' : item.saat}</Text>
@@ -273,12 +332,16 @@ const lineChartStyle = React.useMemo<ViewStyle>(() => {
                     <View style={styles.modalOverlay}>
                         <View style={[styles.modalContent, { backgroundColor: colors.cardBackground }]}>
                             <View style={styles.modalHeader}>
-                                <Text style={[styles.modalTitle, { color: colors.text }]}>Sonraki Saatler için Sıcaklık</Text>
+<Text style={[styles.modalTitle, { color: colors.text }]}>
+  Sonraki Saatler · {VAR_META[varKey].label}
+</Text>
                                 <TouchableOpacity onPress={closeModal} style={styles.closeIconButton}>
                                     <X size={24} color={colors.text} />
                                 </TouchableOpacity>
                             </View>
+                            
                             {/* Seçili saat bilgi kartı (YENİ) */}
+                            
                             {forecastHoursToShow > 24 && selectedHourIndex !== null && (
                             <View
                                 style={[
@@ -296,41 +359,73 @@ const lineChartStyle = React.useMemo<ViewStyle>(() => {
                                 const api = h ? convertTemperature(h.sicaklik) : null;
                                 const ai  = h && h.aiSicaklikTahmini != null ? convertTemperature(h.aiSicaklikTahmini) : null;
                                 const acc = h?.dogrulukYuzdesi ?? null;
+                                // --- BLEND ile seçilen alana göre API/AI/Δ/% (25–30'da)
+
+const apiX   = tri?.api ?? null;
+const aiX    = tri?.ai ?? null;
+const deltaX = tri?.delta ?? null;
+const pct    = pctDiff(aiX, apiX);
+
 
                                 return (
                                     <View>
                                     <Text style={[styles.infoTitle, { color: colors.text }]}>
                                         {h?.saat ?? '--:--'} için detay
                                     </Text>
+                                    {/* 25–30 görünümünde alan sekmeleri */}
+<VarTabs value={varKey} onChange={setVarKey} />
 
-                                    {/* Legend */}
-                                    <View style={styles.legendRow}>
-                                        <View style={[styles.legendDot, { backgroundColor: '#2563eb' }]} />
-                                        <Text style={[styles.legendText, { color: colors.text }]}>API</Text>
-                                        <View style={{ width: 12 }} />
-                                        <View style={[styles.legendDot, { backgroundColor: '#10b981' }]} />
-                                        <Text style={[styles.legendText, { color: colors.text }]}>AI</Text>
-                                    </View>
+                          {/* Legend */}
+<View style={styles.legendRow}>
+  <View style={[styles.legendDot, { backgroundColor: '#2563eb' }]} />
+  <Text style={[styles.legendText, { color: colors.text }]}>API ({meta.label})</Text>
+  <View style={{ width: 12 }} />
+  <View style={[styles.legendDot, { backgroundColor: '#10b981' }]} />
+  <Text style={[styles.legendText, { color: colors.text }]}>AI ({meta.label})</Text>
+</View>
+                                    {/* Değerler (SEÇİLEN ALAN) */}
+                                    <View style={styles.infoRow}>
+  <Text style={[styles.infoLabel, { color: colors.icon }]}>API ({meta.label})</Text>
+  <Text style={[styles.infoValue, { color: colors.text }]}>
+    {tri?.api == null ? "—" : `${round1(tri.api)} ${meta.unit}`}
+  </Text>
+</View>
+<View style={styles.infoRow}>
+  <Text style={[styles.infoLabel, { color: colors.icon }]}>AI ({meta.label})</Text>
+  <Text style={[styles.infoValue, { color: colors.text }]}>
+    {tri?.ai == null ? "—" : `${round1(tri.ai)} ${meta.unit}`}
+  </Text>
+</View>
+<View style={styles.infoRow}>
+  <Text style={[styles.infoLabel, { color: colors.icon }]}>Δ</Text>
+  <Text style={[styles.infoValue, { color: colors.text }]}>
+    {tri?.delta == null ? "—" : `${round1(tri.delta)} ${meta.unit}`}
+  </Text>
+</View>
+<View style={styles.infoRow}>
+  <Text style={[styles.infoLabel, { color: colors.icon }]}>% Fark</Text>
+  <Text style={[styles.infoBadge, { borderColor: colors.borderColor, color: colors.text }]}>
+    {pctDiff(tri?.ai, tri?.api)}
+  </Text>
+</View>
+{varKey === 'temp' && (
+  <>
+    <View style={styles.infoRow}>
+      <Text style={[styles.infoLabel, { color: colors.icon }]}>AI Tahmin</Text>
+      <Text style={[styles.infoValue, { color: colors.text }]}>
+        {ai != null ? `${ai.toFixed(1)}°` : '—'}
+      </Text>
+    </View>
+    <View style={styles.infoRow}>
+      <Text style={[styles.infoLabel, { color: colors.icon }]}>AI Başarı Yüzdesi</Text>
+      <Text style={[styles.infoBadge, { borderColor: colors.borderColor, color: colors.text }]}>
+        {typeof acc === 'number' ? `%${acc.toFixed(1)}` : '—'}
+      </Text>
+    </View>
+  </>
+)}
 
-                                    {/* Değerler */}
-                                    <View style={styles.infoRow}>
-                                        <Text style={[styles.infoLabel, { color: colors.icon }]}>API Tahmin</Text>
-                                        <Text style={[styles.infoValue, { color: colors.text }]}>
-                                        {api != null ? `${api.toFixed(1)}°` : '—'}
-                                        </Text>
-                                    </View>
-                                    <View style={styles.infoRow}>
-                                        <Text style={[styles.infoLabel, { color: colors.icon }]}>AI Tahmin</Text>
-                                        <Text style={[styles.infoValue, { color: colors.text }]}>
-                                        {ai != null ? `${ai.toFixed(1)}°` : '—'}
-                                        </Text>
-                                    </View>
-                                    <View style={styles.infoRow}>
-                                        <Text style={[styles.infoLabel, { color: colors.icon }]}>AI Başarı Yüzdesi</Text>
-                                        <Text style={[styles.infoBadge, { borderColor: colors.borderColor, color: colors.text }]}>
-{typeof acc === 'number' ? `%${acc.toFixed(1)}` : '—'}
-                                        </Text>
-                                    </View>
+        
 
                                     <View style={[styles.infoRow, { marginTop: 8 }]}>
                                         <Text style={[styles.infoLabel, { color: colors.icon }]}>Günlük AI Başarı Yüzdesi</Text>

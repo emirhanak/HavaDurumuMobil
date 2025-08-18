@@ -60,6 +60,8 @@ function ThemedTabs() {
         }}
       />
       <Tabs.Screen name="havadurumu" options={{ href: null }} />
+      
+
     </Tabs>
   );
 }
