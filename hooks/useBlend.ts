@@ -3,6 +3,26 @@ import { useEffect, useState } from "react";
 import Constants from "expo-constants";
 import type { BlendResponse } from "@/types/blend";
 
+// küçük yardımcılar
+const stripDiacritics = (s: string) =>
+  s.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+
+const mapDistrictToProvince = (raw?: string) => {
+  if (!raw) return undefined;
+  const s = stripDiacritics(raw).toLowerCase();
+
+  // burada ihtiyacına göre genişlet
+  if (s.includes('basiskele')) return 'Kocaeli';
+  if (s.includes('izmit'))     return 'Kocaeli';
+  if (s.includes('gebze'))     return 'Kocaeli';
+  if (s.includes('cayirova'))  return 'Kocaeli';
+  // örnek: duzce zaten il
+  if (s.includes('duzce'))     return 'Duzce';
+
+  // eşleşme yoksa undefined dön -> city parametresini eklemeyiz
+  return undefined;
+};
+
 function buildBaseUrl() {
   const env = process.env.EXPO_PUBLIC_BLEND_BASE_URL;
   if (env) return env.replace(/\/$/, "");
@@ -21,15 +41,40 @@ export function useBlend(city: string, lat: number, lon: number) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
 
+  // Veri değiştiğinde loglama yapmak için bu useEffect'i buraya taşıdık.
+  // Hook kurallarına uygun olarak en üst seviyede olmalı.
+  useEffect(() => {
+    if (data?.timeline?.length) {
+      console.log("[BLEND OK] window_hours:", data.window_hours,
+        "t0.api/ai:", data.timeline[0]?.temp?.api, data.timeline[0]?.temp?.ai,
+        "t24.api/ai:", data.timeline[24]?.temp?.api, data.timeline[24]?.temp?.ai
+      );
+    }
+  }, [data]);
+
   useEffect(() => {
     let ignore = false;
     (async () => {
       try {
         setLoading(true);
         setError(null);
-        const url = `${BASE}/blend?city=${encodeURIComponent(city)}&lat=${lat}&lon=${lon}&plus_hours=6&reg_mode=auto`;
-        const res = await fetch(url, { headers: { Accept: "application/json" } });
-        if (!res.ok) throw new Error(`blend ${res.status}`);
+
+        // Yeni URL oluşturma mantığı
+        const province = mapDistrictToProvince(city);
+        const url = new URL(`${BASE}/mobile/blend`);
+        url.searchParams.set('lat', String(lat));
+        url.searchParams.set('lon', String(lon));
+        url.searchParams.set('plus_hours', '6'); // Sabit 6 saat
+        url.searchParams.set('reg_mode', 'auto'); // Sabit auto
+        if (province) url.searchParams.set('city', province); // Sadece il varsa gönder
+
+        console.log("📡 useBlend URL:", url.toString());
+
+        const res = await fetch(url.toString(), { headers: { Accept: "application/json" } });
+if (!res.ok) {
+  const txt = await res.text().catch(() => "");
+  throw new Error(`blend ${res.status} ${txt || ""}`.trim());
+}
         const json = (await res.json()) as BlendResponse;
         if (!ignore) setData(json);
       } catch (e: any) {

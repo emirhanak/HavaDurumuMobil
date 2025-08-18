@@ -56,6 +56,7 @@ export default function HavaDurumuDetay({ sehir, weatherData }: HavaDurumuDetayP
     const [forecastHoursToShow, setForecastHoursToShow] = React.useState(24);
     // --- Saat seçimi & info kart animasyonu (YENİ) ---
     const [selectedHourIndex, setSelectedHourIndex] = React.useState<number | null>(null);
+    
     // ✅ EKLE: sekme seçimi ve /blend verisi
 // useBlend zaten importlu
 const [varKey, setVarKey] = React.useState<VarKey>("temp");
@@ -70,11 +71,47 @@ React.useEffect(() => {
 }, [blend, blendErr, baseUrl]);
 
 // Seçili saate ve seçili sekmeye göre {api, ai, delta}
+// Seçili saate ve seçili sekmeye göre {api, ai, delta}
+// Seçili saate ve seçili sekmeye göre {api, ai, delta}
+// Seçili saate ve seçili sekmeye göre {api, ai, delta}
 const tri = React.useMemo(() => {
-  if (!blend || typeof selectedHourIndex !== "number") return null;
-  const row = blend.timeline[selectedHourIndex] as any;
-  return row?.[varKey] ?? null; // örn row.temp / row.rhum ...
-}, [blend, selectedHourIndex, varKey]);
+  if (typeof selectedHourIndex !== "number") return null;
+console.log('[INFO]', selectedHourIndex, varKey,
+  'blend.api=', blend?.timeline?.[selectedHourIndex!]?.[varKey]?.api,
+  'blend.ai=',  blend?.timeline?.[selectedHourIndex!]?.[varKey]?.ai
+);
+
+  // 30 saat modundaki gerçek AI blend'te
+  const row = blend?.timeline?.[selectedHourIndex] as any | undefined;
+  const fromBlend = row?.[varKey] as { api?: number; ai?: number; delta?: number } | undefined;
+
+  // İlk 24 saatin (veya Java backfill'inin) kaynağı saatlikTahmin
+  const h = (weatherData?.saatlikTahmin || [])[selectedHourIndex] as any;
+  const apiFromH = (typeof h?.sicaklik === "number") ? h.sicaklik : undefined;
+  const aiFromH  = (typeof h?.aiSicaklikTahmini === "number") && (selectedHourIndex < 24) ? h.aiSicaklikTahmini : undefined;
+
+  // DİKKAT: AI'ı asla API'ya düşürme
+  const api   = (fromBlend?.api  ?? apiFromH) ?? null;
+  const ai    = (fromBlend?.ai   ?? aiFromH ) ?? null;
+  const delta = (fromBlend?.delta != null)
+                  ? fromBlend.delta
+                  : (ai != null && api != null ? ai - api : null);
+
+  if (api == null && ai == null && delta == null) return null;
+  return { api, ai, delta };
+}, [blend, weatherData?.saatlikTahmin, selectedHourIndex, varKey]);
+React.useEffect(() => {
+  if (typeof selectedHourIndex === 'number') {
+    const r = blend?.timeline?.[selectedHourIndex] as any;
+    console.log('[INFO]', selectedHourIndex,
+      'varKey=', varKey,
+      'blend.api=', r?.[varKey]?.api,
+      'blend.ai=', r?.[varKey]?.ai,
+      'tri=', tri
+    );
+  }
+}, [selectedHourIndex, varKey, blend, tri]);
+
 
 const meta = VAR_META[varKey]; // label & unit
 
@@ -195,39 +232,33 @@ const showLoadingModal = () => {
 const getChartData = (): LineChartData => {
   const emptyData: LineChartData = { labels: [], datasets: [{ data: [] }] };
   if (!saatlikVeri || saatlikVeri.length === 0) return emptyData;
-// HavaDurumuDetay.tsx -> getChartData() içinde:
 
-const dataSlice = saatlikVeri.slice(0, forecastHoursToShow);
-const labels = dataSlice.map(i => i.saat);
+  const dataSlice = (weatherData?.saatlikTahmin ?? []).slice(0, forecastHoursToShow);
+  const labels = dataSlice.map(i => i.saat);
+    const h = dataSlice[selectedHourIndex!] as SaatlikTahmin | undefined;
 
-// 1) API
-const apiData = dataSlice.map(i => convertTemperature(i.sicaklik)) as any;
 
-// 2) AI: önce saatlikVeri.aiSicaklikTahmini, yoksa (ve 25–30 modundaysak) blend.timeline[i].temp.ai
+  // 1) API çizgisi (her zaman var)
+  const apiData = dataSlice.map(i => convertTemperature(i.sicaklik)) as any;
+
+  // 2) AI çizgisi (varsa saatlikTahmin'den, yoksa 30 saat modunda blend'ten)
+ // getChartData içinde
 const aiData = dataSlice.map((h, idx) => {
-  // a) Java servisinden gelen (0–24 için backfill edilmiş) AI varsa onu kullan
-  if (h.aiSicaklikTahmini != null) {
+  // 1) BLEND varsa her zaman önce onu dene
+  const blendRow = (blend?.timeline as any[] | undefined)?.[idx];
+  const blendAi  = blendRow?.[varKey]?.ai;
+  if (typeof blendAi === "number") {
+    return convertTemperature(blendAi) as any;
+  }
+
+  // 2) SaatlikTahmin içindeki AI'ya düş (ilk 24 saat)
+  if (idx < 24 && typeof h?.aiSicaklikTahmini === "number") {
     return convertTemperature(h.aiSicaklikTahmini) as any;
   }
-  // b) 25–30 görünümündeysek ve blend geldiyse oradan doldur
-  if (forecastHoursToShow > 24 && blend?.window_hours === 30) {
-    const row = (blend.timeline as any[])[idx];
-    const ai = row?.temp?.ai;
-    return ai == null ? null : (convertTemperature(ai) as any);
-  }
-  // c) iki durumda da yoksa boş bırak
+
+  // 3) Yoksa çizme
   return null as any;
 }) as any;
-
-return {
-  labels,
-  datasets: [
-    { data: apiData, color: (o=1) => `rgba(37,99,235,${o})`, strokeWidth: 2, withDots: true },
-    { data: aiData,  color: (o=1) => `rgba(16,185,129,${o})`, strokeWidth: 2, withDots: true },
-  ],
-};
-
-
 
 
   return {
@@ -238,6 +269,18 @@ return {
     ],
   };
 };
+console.log('[CHK] sd0 api/ai from BLEND',
+  blend?.timeline?.[0]?.[varKey]?.api,
+  blend?.timeline?.[0]?.[varKey]?.ai);
+
+console.log('[CHK] sd0 api/ai from HOURLY',
+  weatherData?.saatlikTahmin?.[0]?.sicaklik,
+  weatherData?.saatlikTahmin?.[0]?.aiSicaklikTahmini);
+
+console.log('[CHK] is hourly AI equal to API?',
+  weatherData?.saatlikTahmin?.[0]?.aiSicaklikTahmini === weatherData?.saatlikTahmin?.[0]?.sicaklik);
+
+
 
 
     const chartConfig = {
@@ -355,16 +398,32 @@ const lineChartStyle = React.useMemo<ViewStyle>(() => {
                             >
                                 {(() => {
                                 const dataSlice = (weatherData?.saatlikTahmin || []).slice(0, forecastHoursToShow);
-                                const h = dataSlice[selectedHourIndex!];
-                                const api = h ? convertTemperature(h.sicaklik) : null;
-                                const ai  = h && h.aiSicaklikTahmini != null ? convertTemperature(h.aiSicaklikTahmini) : null;
-                                const acc = h?.dogrulukYuzdesi ?? null;
-                                // --- BLEND ile seçilen alana göre API/AI/Δ/% (25–30'da)
+                                const h = dataSlice[selectedHourIndex!] as SaatlikTahmin | undefined;
 
-const apiX   = tri?.api ?? null;
-const aiX    = tri?.ai ?? null;
-const deltaX = tri?.delta ?? null;
-const pct    = pctDiff(aiX, apiX);
+// Seçili sekmeye göre meta
+const meta = VAR_META[varKey];
+
+// 1) API/AI/Δ (öncelik BLEND → saatlikTahmin)
+const blendRow = (blend?.timeline as any[] | undefined)?.[selectedHourIndex!];
+const fromBlend = blendRow?.[varKey] as { api?: number; ai?: number; delta?: number } | undefined;
+
+const apiShownRaw =
+  (typeof fromBlend?.api === 'number')
+    ? fromBlend!.api
+    : (typeof h?.sicaklik === 'number' ? h!.sicaklik : null);
+
+const aiShownRaw =
+  (typeof fromBlend?.ai === 'number')
+    ? fromBlend!.ai
+    : (selectedHourIndex < 24 && typeof h?.aiSicaklikTahmini === 'number' ? h!.aiSicaklikTahmini : null);
+
+const deltaShownRaw =
+  (tri?.delta != null) ? tri!.delta :
+  (aiShownRaw != null && apiShownRaw != null ? aiShownRaw - apiShownRaw : null);
+
+// 2) % fark ve başarı
+const pct = pctDiff(aiShownRaw, apiShownRaw);
+const acc = (typeof h?.dogrulukYuzdesi === 'number') ? h!.dogrulukYuzdesi : null;
 
 
                                 return (
@@ -384,36 +443,40 @@ const pct    = pctDiff(aiX, apiX);
   <Text style={[styles.legendText, { color: colors.text }]}>AI ({meta.label})</Text>
 </View>
                                     {/* Değerler (SEÇİLEN ALAN) */}
-                                    <View style={styles.infoRow}>
+<View style={styles.infoRow}>
   <Text style={[styles.infoLabel, { color: colors.icon }]}>API ({meta.label})</Text>
   <Text style={[styles.infoValue, { color: colors.text }]}>
-    {tri?.api == null ? "—" : `${round1(tri.api)} ${meta.unit}`}
+    {apiShownRaw == null ? "—" : `${round1(apiShownRaw)} ${meta.unit}`}
   </Text>
 </View>
+
 <View style={styles.infoRow}>
   <Text style={[styles.infoLabel, { color: colors.icon }]}>AI ({meta.label})</Text>
   <Text style={[styles.infoValue, { color: colors.text }]}>
-    {tri?.ai == null ? "—" : `${round1(tri.ai)} ${meta.unit}`}
+    {aiShownRaw == null ? "—" : `${round1(aiShownRaw)} ${meta.unit}`}
   </Text>
 </View>
+
 <View style={styles.infoRow}>
   <Text style={[styles.infoLabel, { color: colors.icon }]}>Δ</Text>
   <Text style={[styles.infoValue, { color: colors.text }]}>
-    {tri?.delta == null ? "—" : `${round1(tri.delta)} ${meta.unit}`}
+    {deltaShownRaw == null ? "—" : `${round1(deltaShownRaw)} ${meta.unit}`}
   </Text>
 </View>
+
 <View style={styles.infoRow}>
   <Text style={[styles.infoLabel, { color: colors.icon }]}>% Fark</Text>
   <Text style={[styles.infoBadge, { borderColor: colors.borderColor, color: colors.text }]}>
-    {pctDiff(tri?.ai, tri?.api)}
+    {pct}
   </Text>
 </View>
+
 {varKey === 'temp' && (
   <>
     <View style={styles.infoRow}>
       <Text style={[styles.infoLabel, { color: colors.icon }]}>AI Tahmin</Text>
       <Text style={[styles.infoValue, { color: colors.text }]}>
-        {ai != null ? `${ai.toFixed(1)}°` : '—'}
+        {aiShownRaw != null ? `${convertTemperature(aiShownRaw)}°` : '—'}
       </Text>
     </View>
     <View style={styles.infoRow}>

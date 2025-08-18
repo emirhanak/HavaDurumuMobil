@@ -12,11 +12,6 @@ import org.springframework.web.client.RestTemplate;
 @EnableCaching
 public class AppConfig {
 
-  @Bean
-  public RestTemplate restTemplate(RestTemplateBuilder builder) {
-    return builder
-        .setConnectTimeout(Duration.ofSeconds(8))
-        .setReadTimeout(Duration.ofSeconds(12))
-        .build();
-  }
+  
+  
 }
