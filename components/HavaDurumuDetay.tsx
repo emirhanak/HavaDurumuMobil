@@ -161,10 +161,6 @@ const closeInfo = () => {
     }, [weatherData]);
 
 
-<<<<<<< HEAD
-
-=======
->>>>>>> main
     if (!weatherData || !sehir || !weatherData.anlikHavaDurumu) return null;
 
     const anlikVeri = weatherData.anlikHavaDurumu;
@@ -304,30 +300,6 @@ console.log('[CHK] is hourly AI equal to API?',
 
 
 
-<<<<<<< HEAD
-=======
-    const getChartData = () => {
-        if (saatlikVeri.length === 0) return { labels: [], datasets: [{ data: [] }] };
-        
-        const now = new Date();
-        const currentHour = now.getHours();
-        const dataSlice = saatlikVeri.slice(0, 24);
-        
-        const labels = dataSlice.map((_, index) => {
-            const displayHour = (currentHour + index) % 24;
-            return index === 0 ? 'Şimdi' : `${displayHour.toString().padStart(2, '0')}:00`;
-        });
-        
-        return {
-            labels: labels,
-            datasets: [{
-                data: dataSlice.map(item => Math.round(item.sicaklik)),
-                color: (opacity = 1) => `rgba(135, 206, 250, ${opacity})`,
-                strokeWidth: 3
-            }]
-        };
-    };
->>>>>>> main
 
     const chartConfig = {
         backgroundGradientFrom: colors.cardBackground,
@@ -560,7 +532,6 @@ const acc = (typeof h?.dogrulukYuzdesi === 'number') ? h!.dogrulukYuzdesi : null
                                     ))}
                                 </View>
                                 
-<<<<<<< HEAD
                               <ScrollView
   horizontal
   showsHorizontalScrollIndicator={false}
@@ -620,36 +591,6 @@ const acc = (typeof h?.dogrulukYuzdesi === 'number') ? h!.dogrulukYuzdesi : null
   )}
 </ScrollView>
 
-=======
-                                {/* Kaydırılabilir Grafik Alanı */}
-                                <ScrollView
-                                    horizontal
-                                    showsHorizontalScrollIndicator={false}
-                                    contentContainerStyle={{ paddingHorizontal: 0 }}
-                                    onScroll={e => {
-                                        scrollX.current = e.nativeEvent.contentOffset.x;
-                                    }}
-                                    scrollEventThrottle={16}
-                                    style={styles.chartScrollView}
-                                >
-                                    {chartData.labels.length > 0 && (
-                                        <LineChart
-                                            data={chartData} 
-                                            width={totalChartWidth} 
-                                            height={250} 
-                                            chartConfig={updatedChartConfig} 
-                                            bezier
-                                            style={styles.chartStyle} 
-                                            yAxisSuffix=""
-                                            fromZero={false}
-                                            segments={4}
-                                            onDataPointClick={handleDataPointClick}
-                                            withVerticalLabels={true}
-                                            withHorizontalLabels={false}
-                                        />
-                                    )}
-                                </ScrollView>
->>>>>>> main
                             </View>
                             
 
@@ -667,16 +608,6 @@ const acc = (typeof h?.dogrulukYuzdesi === 'number') ? h!.dogrulukYuzdesi : null
                                     <Text style={styles.tooltipText}>{tooltipData.value.toFixed(1)}°</Text>
                                 </Animated.View>
                             )}
-<<<<<<< HEAD
-=======
-                            
-                            <Pressable style={[styles.closeButton, { backgroundColor: colors.background }]} onPress={() => {
-                                setTooltipData(null);
-                                setModalVisible(false);
-                            }}>
-                                <Text style={[styles.closeButtonText, { color: colors.text }]}>Kapat</Text>
-                            </Pressable>
->>>>>>> main
                         </View>
                         {/* Overlay'e tıklandığında modal'ı kapatmak için invisible touch area */}
                         <Pressable 
