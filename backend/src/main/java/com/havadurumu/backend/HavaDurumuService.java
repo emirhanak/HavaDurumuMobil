@@ -41,7 +41,7 @@ public class HavaDurumuService {
                 .queryParam("units", "metric")
                 .queryParam("language", "tr")
                 .toUriString();
-
+//as
         try {
             String jsonResponse = restTemplate.getForObject(fullUrl, String.class);
             ObjectMapper objectMapper = new ObjectMapper();
