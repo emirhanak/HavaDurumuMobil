@@ -58,7 +58,7 @@ export interface HavaDurumuCevap {
 const cache = new Map<string, { data: any; timestamp: number }>();
 const CACHE_DURATION = 30 * 60 * 1000; // 30 dakika milisaniye cinsinden
 
-const TOMORROW_API_KEY = "65f3tbh8ipGrdj7Tj5MA1ka6r2Ufg3UR"; // << YENİ ANAHTARINIZ BURADA
+const TOMORROW_API_KEY = "PHJcZ4fkxsF6N1zQZcvKtgilMBqFgFzM"; // << YENİ ANAHTARINIZ BURADA
 
 export async function fetchDailyForecast(lat: number, lon: number): Promise<GunlukTahmin[]> {
   if (!TOMORROW_API_KEY) {
