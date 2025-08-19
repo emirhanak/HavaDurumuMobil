@@ -19,7 +19,7 @@ Bu doküman, **Mobil Hava Durumu Tahmin Uygulaması**’nı yerel ortamda kurmak
 git clone https://github.com/kullaniciadi/havadurumumobil.git
 cd havadurumumobil
 
-3. Mobil Uygulama (React Native + Expo)
+### 3. Mobil Uygulama (React Native + Expo)
 cd mobile
 npm install
 npm start
@@ -29,14 +29,14 @@ iOS için: iOS Simulator veya Expo Go uygulaması
 
 Android için: Android Studio Emulator veya Expo Go
 
-4. Java Proxy Backend
+## 4. Java Proxy Backend
 cd backend-java
 ./mvnw spring-boot:run
 
 
 Varsayılan port: 8080
 
-5. FastAPI AI Servisi
+### 5. FastAPI AI Servisi
 cd backend-fastapi
 pip install -r requirements.txt
 uvicorn main:app --host 0.0.0.0 --port 8100 --reload
@@ -44,13 +44,13 @@ uvicorn main:app --host 0.0.0.0 --port 8100 --reload
 
 Varsayılan port: 8100
 
-6. Ortam Değişkenleri
+### 6. Ortam Değişkenleri
 
 .env dosyası oluşturun:
 
 TOMORROW_API_KEY=your_api_key_here
 
-7. Test
+### 7. Test
 
 Tarayıcıda açın:
 
@@ -60,8 +60,8 @@ http://localhost:8080/ping
 http://localhost:8100/blend?...
  → API + AI verilerini döner
 
-🇬🇧 Setup Steps
-1. Prerequisites
+## 🇬🇧 Setup Steps
+### 1. Prerequisites
 
 Node.js (>= 18.x)
 
@@ -73,11 +73,11 @@ Java (>= 17)
 
 Anaconda (recommended for AI models)
 
-2. Clone Repository
+### 2. Clone Repository
 git clone https://github.com/username/havadurumumobil.git
 cd havadurumumobil
 
-3. Mobile App (React Native + Expo)
+### 3. Mobile App (React Native + Expo)
 cd mobile
 npm install
 npm start
@@ -87,14 +87,14 @@ iOS: iOS Simulator or Expo Go
 
 Android: Android Studio Emulator or Expo Go
 
-4. Java Proxy Backend
+### 4. Java Proxy Backend
 cd backend-java
 ./mvnw spring-boot:run
 
 
 Default port: 8080
 
-5. FastAPI AI Service
+### 5. FastAPI AI Service
 cd backend-fastapi
 pip install -r requirements.txt
 uvicorn main:app --host 0.0.0.0 --port 8100 --reload
@@ -102,13 +102,13 @@ uvicorn main:app --host 0.0.0.0 --port 8100 --reload
 
 Default port: 8100
 
-6. Environment Variables
+### 6. Environment Variables
 
 Create a .env file:
 
 TOMORROW_API_KEY=your_api_key_here
 
-7. Testing
+### 7. Testing
 
 Open in browser:
 
