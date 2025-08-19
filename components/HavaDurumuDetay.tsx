@@ -4,6 +4,7 @@ import { BottomSheetModal, BottomSheetModalProvider, BottomSheetBackdrop } from 
 import VarTabs, { VarKey } from "@/components/VarTabs";
 import { VAR_META, round1, pctDiff } from "@/utils/format";
 import { useBlend } from "@/hooks/useBlend";
+import { fetchDailyForecast } from "@/services/havaDurumuService"; // Yeni fonksiyonu import et
 
 
 
@@ -59,7 +60,19 @@ export default function HavaDurumuDetay({ sehir, weatherData }: HavaDurumuDetayP
     
     // ✅ EKLE: sekme seçimi ve /blend verisi
 // useBlend zaten importlu
-const [varKey, setVarKey] = React.useState<VarKey>("temp");
+    const [dailyForecastData, setDailyForecastData] = React.useState<GunlukTahmin[]>([]);
+
+    React.useEffect(() => {
+        const loadDailyData = async () => {
+            if (sehir) {
+                const data = await fetchDailyForecast(sehir.enlem, sehir.boylam);
+                setDailyForecastData(data);
+            }
+        };
+        loadDailyData();
+    }, [sehir]);
+
+    const [varKey, setVarKey] = React.useState<VarKey>("temp");
 // eski: const { data: blend, error: blendErr } = useBlend(...)
 const { data: blend, error: blendErr, baseUrl } = useBlend(sehir.ad, sehir.enlem, sehir.boylam);
 
@@ -244,21 +257,27 @@ const getChartData = (): LineChartData => {
   // 2) AI çizgisi (varsa saatlikTahmin'den, yoksa 30 saat modunda blend'ten)
  // getChartData içinde
 const aiData = dataSlice.map((h, idx) => {
-  // 1) BLEND varsa her zaman önce onu dene
   const blendRow = (blend?.timeline as any[] | undefined)?.[idx];
-  const blendAi  = blendRow?.[varKey]?.ai;
-  if (typeof blendAi === "number") {
-    return convertTemperature(blendAi) as any;
+  const blendAiTemp  = blendRow?.temp?.ai; // Her zaman sıcaklık AI'yı al
+  const blendApiTemp = blendRow?.temp?.api; // Her zaman sıcaklık API'yı al
+
+  // 1. BLEND AI (sıcaklık) değeri varsa (öncelikli)
+  if (typeof blendAiTemp === "number") {
+    return convertTemperature(blendAiTemp);
   }
 
-  // 2) SaatlikTahmin içindeki AI'ya düş (ilk 24 saat)
-  if (idx < 24 && typeof h?.aiSicaklikTahmini === "number") {
-    return convertTemperature(h.aiSicaklikTahmini) as any;
+  // 2. BLEND AI (sıcaklık) değeri yoksa, ilk 24 saat için SaatlikTahmin AI'yı veya API'yı kullan
+  if (idx < 24) {
+    if (typeof h?.aiSicaklikTahmini === "number") {
+      return convertTemperature(h.aiSicaklikTahmini);
+    } else if (typeof h?.sicaklik === "number") {
+      return convertTemperature(h.sicaklik); // Sıcaklık için API backfill
+    }
   }
 
-  // 3) Yoksa çizme
-  return null as any;
-}) as any;
+  // 3. Diğer durumlar (24+ saat veya AI/API backfill yapılamayan metrikler) null olsun
+  return null;
+});
 
 
   return {
@@ -343,7 +362,7 @@ const lineChartStyle = React.useMemo<ViewStyle>(() => {
                 <View style={styles.anaHavaBolumu}>
                     <Text style={[styles.sehirAdi, { color: colors.text }]}>{sehir.ad}</Text>
                     <Text style={[styles.anlikSicaklik, { color: colors.text }]}>{Math.round(anlikVeri.sicaklik)}°</Text>
-                    <Text style={[styles.havaDurumu, { color: colors.text, marginBottom: 8 }]}>{anlikVeri.durum} · Hissedilen: {Math.round(anlikVeri.hissedilen)}°</Text>
+                    <Text style={[styles.havaDurumu, { color: colors.text, marginBottom: 8 }]}>{anlikVeri.durum} Hissedilen: {Math.round(anlikVeri.hissedilen)}°</Text>
                     <Text style={[styles.yuksekDusukSicaklik, { color: colors.text }]}>Y:{Math.round(anlikVeri.enYuksek)}° D:{Math.round(anlikVeri.enDusuk)}°</Text>
                 </View>
 
@@ -376,7 +395,7 @@ const lineChartStyle = React.useMemo<ViewStyle>(() => {
                         <View style={[styles.modalContent, { backgroundColor: colors.cardBackground }]}>
                             <View style={styles.modalHeader}>
 <Text style={[styles.modalTitle, { color: colors.text }]}>
-  Sonraki Saatler · {VAR_META[varKey].label}
+  
 </Text>
                                 <TouchableOpacity onPress={closeModal} style={styles.closeIconButton}>
                                     <X size={24} color={colors.text} />
@@ -415,7 +434,9 @@ const apiShownRaw =
 const aiShownRaw =
   (typeof fromBlend?.ai === 'number')
     ? fromBlend!.ai
-    : (selectedHourIndex < 24 && typeof h?.aiSicaklikTahmini === 'number' ? h!.aiSicaklikTahmini : null);
+    : (selectedHourIndex < 24 && typeof h?.aiSicaklikTahmini === 'number' && varKey === 'temp') // Sadece sıcaklık için AI tahminini kullan
+      ? h!.aiSicaklikTahmini
+      : null; // Diğer durumlarda backfill yapma, null olsun (bu -- olarak görünecek)
 
 const deltaShownRaw =
   (tri?.delta != null) ? tri!.delta :
@@ -473,12 +494,7 @@ const acc = (typeof h?.dogrulukYuzdesi === 'number') ? h!.dogrulukYuzdesi : null
 
 {varKey === 'temp' && (
   <>
-    <View style={styles.infoRow}>
-      <Text style={[styles.infoLabel, { color: colors.icon }]}>AI Tahmin</Text>
-      <Text style={[styles.infoValue, { color: colors.text }]}>
-        {aiShownRaw != null ? `${convertTemperature(aiShownRaw)}°` : '—'}
-      </Text>
-    </View>
+    
     <View style={styles.infoRow}>
       <Text style={[styles.infoLabel, { color: colors.icon }]}>AI Başarı Yüzdesi</Text>
       <Text style={[styles.infoBadge, { borderColor: colors.borderColor, color: colors.text }]}>
@@ -650,9 +666,10 @@ const acc = (typeof h?.dogrulukYuzdesi === 'number') ? h!.dogrulukYuzdesi : null
                 </Modal>
 
                 {/* Günlük Tahmin Kartı */}
+                {(dailyForecastData?.length ?? 0) > 0 && (
                 <View style={[styles.card, cardStyle, { backgroundColor: colors.cardBackground, borderColor: colors.borderColor }]}>
                     <Text style={[styles.cardTitle, { color: colors.icon }]}>HAFTALIK TAHMİN</Text>
-                    {gunlukVeri.map((item, index) => (
+                    {dailyForecastData.map((item, index) => (
                         <View key={index} style={[styles.gunlukItem, { borderBottomColor: colors.borderColor }]}>
                             <View style={styles.gunlukSol}>
                                 <Text style={[styles.gunText, { color: colors.text }]}>{index === 0 ? 'Bugün' : gunKisaltma(item.gun)}</Text>
@@ -668,6 +685,7 @@ const acc = (typeof h?.dogrulukYuzdesi === 'number') ? h!.dogrulukYuzdesi : null
                         </View>
                     ))}
                 </View>
+                )}
 
                 {/* Detay Kartları */}
                 <View style={styles.detayKartlarGrid}>

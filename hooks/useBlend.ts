@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import Constants from "expo-constants";
 import type { BlendResponse } from "@/types/blend";
+import { pickModelCity } from "@/services/havaDurumuService";
 
 // küçük yardımcılar
 const stripDiacritics = (s: string) =>
@@ -124,10 +125,9 @@ export function useBlend(city: string, lat: number, lon: number) {
   // Hook kurallarına uygun olarak en üst seviyede olmalı.
   useEffect(() => {
     if (data?.timeline?.length) {
-      console.log("[BLEND OK] window_hours:", data.window_hours,
-        "t0.api/ai:", data.timeline[0]?.temp?.api, data.timeline[0]?.temp?.ai,
-        "t24.api/ai:", data.timeline[24]?.temp?.api, data.timeline[24]?.temp?.ai
-      );
+      // console.log("[BLEND OK] window_hours:", data.window_hours,
+      //   "t0.api/ai:", data.timeline[0]?.temp?.api, data.timeline[0]?.temp?.ai,
+      //   "t24.api/ai:", data.timeline[24]?.temp?.api, data.timeline[24]?.temp?.ai);
     }
   }, [data]);
 
@@ -139,7 +139,7 @@ export function useBlend(city: string, lat: number, lon: number) {
         setError(null);
 
         // Yeni URL oluşturma mantığı
-        const province = mapDistrictToProvince(city);
+        const province = pickModelCity(city); // useBlend.ts
         const url = new URL(`${BASE}/mobile/blend`);
         url.searchParams.set('lat', String(lat));
         url.searchParams.set('lon', String(lon));
@@ -147,7 +147,7 @@ export function useBlend(city: string, lat: number, lon: number) {
         url.searchParams.set('reg_mode', 'auto'); // Sabit auto
         if (province) url.searchParams.set('city', province); // Sadece il varsa gönder
 
-        console.log("📡 useBlend URL:", url.toString());
+        // console.log("📡 useBlend URL:", url.toString()); // Kaldırıldı
 
         const res = await fetch(url.toString(), { headers: { Accept: "application/json" } });
 if (!res.ok) {
@@ -164,7 +164,8 @@ if (!res.ok) {
     })();
     return () => { ignore = true; };
   }, [city, lat, lon]);
-  console.log("[useBlend] BASE =", BASE, "req:", city, lat, lon);
+
+  // console.log("[useBlend] BASE =", BASE, "req:", city, lat, lon); // Kaldırıldı
 
   return { data, loading, error, baseUrl: BASE };
 

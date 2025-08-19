@@ -54,6 +54,65 @@ export interface HavaDurumuCevap {
   gunlukTahmin: GunlukTahmin[];
 }
 
+// Basit bellek içi önbellek mekanizması
+const cache = new Map<string, { data: any; timestamp: number }>();
+const CACHE_DURATION = 30 * 60 * 1000; // 30 dakika milisaniye cinsinden
+
+const TOMORROW_API_KEY = "65f3tbh8ipGrdj7Tj5MA1ka6r2Ufg3UR"; // << YENİ ANAHTARINIZ BURADA
+
+export async function fetchDailyForecast(lat: number, lon: number): Promise<GunlukTahmin[]> {
+  if (!TOMORROW_API_KEY) {
+    console.error("Tomorrow API anahtarı tanımlanmamış veya geçersiz!");
+    return [];
+  }
+
+  const cacheKey = `daily-${lat}-${lon}`;
+  const cached = cache.get(cacheKey);
+  const now = Date.now();
+
+  if (cached && now - cached.timestamp < CACHE_DURATION) {
+    return cached.data;
+  }
+
+  const location = `${lat},${lon}`;
+  const url = `https://api.tomorrow.io/v4/weather/forecast?location=${location}&timesteps=1d&units=metric&apikey=${TOMORROW_API_KEY}`;
+
+  try {
+    const res = await fetch(url);
+    if (!res.ok) {
+      const errorText = await res.text().catch(() => "");
+      console.error(`Tomorrow API hata (${url}): ${res.status} ${errorText}`);
+      throw new Error(`Tomorrow API hata: ${res.status} ${errorText}`);
+    }
+
+    const json = await res.json();
+    const dailyData = json?.timelines?.daily || [];
+
+    const formattedDailyForecast: GunlukTahmin[] = dailyData.map((day: any) => {
+      const date = new Date(day.time);
+      const gunAdi = date.toLocaleDateString('tr-TR', { weekday: 'long' });
+
+      const minTemp = day.values?.temperatureApparentMin ?? day.values?.temperatureMin;
+      const maxTemp = day.values?.temperatureApparentMax ?? day.values?.temperatureMax;
+      const weatherCode = day.values?.weatherCode;
+
+      return {
+        gun: gunAdi,
+        enDusuk: Math.round(minTemp),
+        enYuksek: Math.round(maxTemp),
+        durumKodu: weatherCode,
+      };
+    }).filter((item: GunlukTahmin) => typeof item.enDusuk === 'number' && typeof item.enYuksek === 'number'); // Geçersiz veriyi filtrele
+
+    cache.set(cacheKey, { data: formattedDailyForecast, timestamp: now });
+    return formattedDailyForecast;
+
+  } catch (e: any) {
+    console.error("Günlük tahmin çekilirken hata oluştu:", e);
+    return [];
+  }
+}
+
 /* ============== Şehir/İlçe isim normalizasyonu ============== */
 
 const PROVINCES = [
@@ -92,15 +151,15 @@ const DISTRICT_TO_PROVINCE: Record<string, string> = {
   "merkez": "duzce",
 };
 
-function trLower(s: string) {
+export function trLower(s: string) {
   return s
     .toLocaleLowerCase("tr-TR")
     .replaceAll("ğ","g").replaceAll("ü","u").replaceAll("ş","s")
     .replaceAll("ı","i").replaceAll("ö","o").replaceAll("ç","c");
 }
-function capitalize(s: string){ return s.charAt(0).toUpperCase() + s.slice(1); }
+export function capitalize(s: string){ return s.charAt(0).toUpperCase() + s.slice(1); }
 
-function pickModelCity(input?: string): string {
+export function pickModelCity(input?: string): string {
   const raw = (input ?? "").trim();
   if (!raw) return "Kocaeli";
   const norm = trLower(raw);
@@ -134,6 +193,14 @@ export const fetchWeatherFromBackend = async (
   lon: number,
   cityName?: string // Opsiyonel: varsa doğrudan il adı, yoksa ilçe → il map yapılır
 ): Promise<HavaDurumuCevap> => {
+  const cacheKey = `blend-${lat}-${lon}-${cityName}`;
+  const cached = cache.get(cacheKey);
+  const now = Date.now();
+
+  if (cached && now - cached.timestamp < CACHE_DURATION) {
+    return cached.data;
+  }
+
   const cityParam = pickModelCity(cityName || "Kocaeli");
 
   const qs = new URLSearchParams({
@@ -144,7 +211,6 @@ export const fetchWeatherFromBackend = async (
     city: cityParam,
   });
   const url = `${JAVA_BACKEND_URL}/mobile/blend?${qs.toString()}`;
-  console.log("📡 İstek atılan URL:", url);
 
   const res = await fetch(url);
   if (!res.ok) {
@@ -214,12 +280,12 @@ export const fetchWeatherFromBackend = async (
     accCount > 0 ? Number((sumAcc / accCount).toFixed(2)) : null;
 
   // Anlık (timeline[0])
-  const now = tl[0] || {};
-  const nowTemp = now?.temp?.api ?? now?.temp?.ai ?? 0;
-  const nowRhum = now?.rhum?.api ?? now?.rhum?.ai ?? 0;
-  const nowPres = now?.pres?.api ?? now?.pres?.ai ?? 0;
-  const nowWspd = now?.wspd?.api ?? now?.wspd?.ai ?? 0;
-  const nowCode = now?.code ?? 0;
+  const anlikVeriObjesi = tl[0] || {};
+  const nowTemp = anlikVeriObjesi?.temp?.api ?? anlikVeriObjesi?.temp?.ai ?? 0;
+  const nowRhum = anlikVeriObjesi?.rhum?.api ?? anlikVeriObjesi?.rhum?.ai ?? 0;
+  const nowPres = anlikVeriObjesi?.pres?.api ?? anlikVeriObjesi?.pres?.ai ?? 0;
+  const nowWspd = anlikVeriObjesi?.wspd?.api ?? anlikVeriObjesi?.wspd?.ai ?? 0;
+  const nowCode = anlikVeriObjesi?.code ?? 0;
 
   const anlik: AnlikHavaDurumu = {
     sicaklik: Number(nowTemp),
@@ -235,12 +301,15 @@ export const fetchWeatherFromBackend = async (
     gunlukAIBasariYuzdesi: gunlukAIBasari,
   };
 
-  // Günlük tahmin: şu anda boş (istersen grup’layıp doldurabiliriz)
-  const gunluk: GunlukTahmin[] = [];
+  // Günlük tahmin: artık doğrudan API'den çekilecek, burada boş kalabilir
+  const gunluk: GunlukTahmin[] = []; // Bu kısım artık dışarıdan doldurulacak
 
-  return {
+  const response = {
     anlikHavaDurumu: anlik,
     saatlikTahmin: saatlik,
     gunlukTahmin: gunluk,
   };
+
+  cache.set(cacheKey, { data: response, timestamp: now });
+  return response;
 };
