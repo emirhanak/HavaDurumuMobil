@@ -6,7 +6,7 @@
 const JAVA_BACKEND_URL = (
   process.env.EXPO_PUBLIC_JAVA_BASE_URL ||
   process.env.EXPO_PUBLIC_BLEND_BASE_URL ||
-  "http://192.168.1.46:8080"
+  "http://192.168.1.195:8080"
 ).replace(/\/+$/, "");
 
 /* ======================= Tipler ======================= */
