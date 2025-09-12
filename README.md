@@ -1,4 +1,4 @@
-# YAPAY ZEKA DESTEKLİ REACT NATIVE MOBİL HAVA DURUMU UYGULAMASI
+# YAPAY ZEKA DESTEKLİ REACT NATIVE MOBİL HAVA DURUMU UYGULAMASI  (English version down below ↓↓)
 
 Bu proje, harici API'lerden (Tomorrow.io) alınan anlık ve 48 saatlik verileri, 10 yıllık Kocaeli verisiyle eğitilmiş özel **Prophet** yapay zeka modelleriyle karşılaştıran ve zenginleştiren tam teşekküllü bir mobil hava durumu uygulamasıdır.
 
