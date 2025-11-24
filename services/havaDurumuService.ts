@@ -6,7 +6,7 @@
 const JAVA_BACKEND_URL = (
   process.env.EXPO_PUBLIC_JAVA_BASE_URL ||
   process.env.EXPO_PUBLIC_BLEND_BASE_URL ||
-  "http://192.168.1.195:8080"
+  "http://192.168.1.41:8080"
 ).replace(/\/+$/, "");
 
 /* ======================= Tipler ======================= */
@@ -58,7 +58,7 @@ export interface HavaDurumuCevap {
 const cache = new Map<string, { data: any; timestamp: number }>();
 const CACHE_DURATION = 30 * 60 * 1000; // 30 dakika milisaniye cinsinden
 
-const TOMORROW_API_KEY = "YOUR_TOMORROW_API_KEY_HERE(buraya kendi api keyinizi yazınız)"; 
+const TOMORROW_API_KEY = "PHJcZ4fkxsF6N1zQZcvKtgilMBqFgFzM"; 
 
 export async function fetchDailyForecast(lat: number, lon: number): Promise<GunlukTahmin[]> {
   if (!TOMORROW_API_KEY) {
