@@ -34,7 +34,7 @@ export default function SehirHavaDurumuEkrani() {
           setWeatherData(data);
         } catch (err) {
           setError('Hava durumu bilgisi alınamadı. Backend sunucunuzun çalıştığından emin olun.');
-          console.error("Detay ekranı için veri çekilemedi:", err);
+          // Error log removed
         } finally {
           setLoading(false);
         }

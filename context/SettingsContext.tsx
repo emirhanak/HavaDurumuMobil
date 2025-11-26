@@ -33,7 +33,7 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
         if (savedTheme) setThemeState(savedTheme);
         if (savedUnit) setUnit(savedUnit);
       } catch (e) {
-        console.error("Ayarlar yüklenemedi.", e);
+        // Error log removed
       } finally {
         setIsLoaded(true);
       }
@@ -45,14 +45,14 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
     try {
       await AsyncStorage.setItem(THEME_KEY, newTheme);
       setThemeState(newTheme);
-    } catch (e) { console.error("Tema kaydedilemedi.", e); }
+    } catch (e) { /* Error log removed */ }
   };
 
   const setUnitAndSave = async (newUnit: Unit) => {
     try {
       await AsyncStorage.setItem(UNIT_KEY, newUnit);
       setUnit(newUnit);
-    } catch (e) { console.error("Birim kaydedilemedi.", e); }
+    } catch (e) { /* Error log removed */ }
   };
 
   if (!isLoaded) {

@@ -76,12 +76,7 @@ export default function HavaDurumuDetay({ sehir, weatherData }: HavaDurumuDetayP
 // eski: const { data: blend, error: blendErr } = useBlend(...)
 const { data: blend, error: blendErr, baseUrl } = useBlend(sehir.ad, sehir.enlem, sehir.boylam);
 
-// (Eğer componentte loglayacaksan) ŞU useEffect'i güvenli hale getir:
-React.useEffect(() => {
-  console.log("[Detay] blend base:", baseUrl);
-  if (blend) console.log("[Detay] window_hours:", blend.window_hours, "len:", blend.timeline?.length);
-  if (blendErr) console.log("[Detay] blendErr:", blendErr);
-}, [blend, blendErr, baseUrl]);
+// Debug logs removed
 
 // Seçili saate ve seçili sekmeye göre {api, ai, delta}
 // Seçili saate ve seçili sekmeye göre {api, ai, delta}
@@ -89,10 +84,6 @@ React.useEffect(() => {
 // Seçili saate ve seçili sekmeye göre {api, ai, delta}
 const tri = React.useMemo(() => {
   if (typeof selectedHourIndex !== "number") return null;
-console.log('[INFO]', selectedHourIndex, varKey,
-  'blend.api=', blend?.timeline?.[selectedHourIndex!]?.[varKey]?.api,
-  'blend.ai=',  blend?.timeline?.[selectedHourIndex!]?.[varKey]?.ai
-);
 
   // 30 saat modundaki gerçek AI blend'te
   const row = blend?.timeline?.[selectedHourIndex] as any | undefined;
@@ -113,17 +104,7 @@ console.log('[INFO]', selectedHourIndex, varKey,
   if (api == null && ai == null && delta == null) return null;
   return { api, ai, delta };
 }, [blend, weatherData?.saatlikTahmin, selectedHourIndex, varKey]);
-React.useEffect(() => {
-  if (typeof selectedHourIndex === 'number') {
-    const r = blend?.timeline?.[selectedHourIndex] as any;
-    console.log('[INFO]', selectedHourIndex,
-      'varKey=', varKey,
-      'blend.api=', r?.[varKey]?.api,
-      'blend.ai=', r?.[varKey]?.ai,
-      'tri=', tri
-    );
-  }
-}, [selectedHourIndex, varKey, blend, tri]);
+// Debug logs removed - useEffect no longer needed
 
 
 const meta = VAR_META[varKey]; // label & unit
@@ -287,16 +268,7 @@ const aiData = dataSlice.map((h, idx) => {
     ],
   };
 };
-console.log('[CHK] sd0 api/ai from BLEND',
-  blend?.timeline?.[0]?.[varKey]?.api,
-  blend?.timeline?.[0]?.[varKey]?.ai);
-
-console.log('[CHK] sd0 api/ai from HOURLY',
-  weatherData?.saatlikTahmin?.[0]?.sicaklik,
-  weatherData?.saatlikTahmin?.[0]?.aiSicaklikTahmini);
-
-console.log('[CHK] is hourly AI equal to API?',
-  weatherData?.saatlikTahmin?.[0]?.aiSicaklikTahmini === weatherData?.saatlikTahmin?.[0]?.sicaklik);
+// Debug logs removed
 
 
 
@@ -573,7 +545,7 @@ const acc = (typeof h?.dogrulukYuzdesi === 'number') ? h!.dogrulukYuzdesi : null
 
      {/* Saat etiketlerinin hizasında görünmez dokunma bandı – sadece 2. grafikte */}
 {forecastHoursToShow > 24 && (
-  <View style={styles.labelTapRow} pointerEvents="box-none">
+  <View style={[styles.labelTapRow, { pointerEvents: 'box-none' }]}>
     {chartData.labels.map((_, i) => (
       <Pressable
         key={i}
@@ -832,6 +804,7 @@ labelTapRow: { // SEFFAF
   height: LABEL_TAP_HEIGHT, // 👈 36 yerine bu
   flexDirection: 'row',
   zIndex: 10,
+  pointerEvents: 'box-none',
   backgroundColor: 'transparent',
 },
 

@@ -35,8 +35,16 @@ export default function AnaHavaDurumuSekmesi() {
           let location = await Location.getCurrentPositionAsync({});
           const { latitude, longitude } = location.coords;
 
-          let geocode = await Location.reverseGeocodeAsync({ latitude, longitude });
-          const sehirAdi = geocode[0]?.city || 'Konumum';
+          // reverseGeocodeAsync is deprecated in SDK 49, but still works
+          // Using try-catch to handle potential errors gracefully
+          let sehirAdi = 'Konumum';
+          try {
+            const geocode = await Location.reverseGeocodeAsync({ latitude, longitude });
+            sehirAdi = geocode[0]?.city || geocode[0]?.subAdministrativeArea || 'Konumum';
+          } catch (geocodeError) {
+            // If geocoding fails, use default name
+            // Log removed
+          }
 
           const data = await fetchWeatherFromBackend(latitude, longitude);
           if (!data || !data.anlikHavaDurumu) {
@@ -56,7 +64,7 @@ export default function AnaHavaDurumuSekmesi() {
 
         } catch (error: any) {
           setHataMesaji(error.message || 'Bir hata oluştu.');
-          console.error(error);
+          // Error log removed
         } finally {
           setIsLoading(false);
         }

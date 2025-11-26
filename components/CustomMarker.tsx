@@ -1,6 +1,5 @@
-import React, { useEffect } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
-import Animated, { useSharedValue, useAnimatedStyle, withSpring } from 'react-native-reanimated';
+import React, { useEffect, useRef } from 'react';
+import { View, Text, StyleSheet, Animated } from 'react-native';
 
 interface CustomMarkerProps {
   sehir: { 
@@ -13,18 +12,19 @@ interface CustomMarkerProps {
 }
 
 export default function CustomMarker({ sehir, isSelected }: CustomMarkerProps) {
-  const scale = useSharedValue(1);
+  // Use React Native Animated instead of reanimated to avoid native module issues
+  const scale = useRef(new Animated.Value(isSelected ? 1 : 0.7)).current;
 
   useEffect(() => {
-    scale.value = withSpring(isSelected ? 1 : 0.7, {
+    Animated.spring(scale, {
+      toValue: isSelected ? 1 : 0.7,
       damping: 15,
       stiffness: 200,
-    });
-  }, [isSelected]);
+      useNativeDriver: true,
+    }).start();
+  }, [isSelected, scale]);
 
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-  }));
+  const animatedStyle = { transform: [{ scale }] };
 
   const sicaklik = Math.round(sehir.sicaklik);
   const dusuk = sehir.enDusuk ? Math.round(sehir.enDusuk) : sicaklik - 4;

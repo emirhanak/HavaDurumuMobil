@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Modal, Pressable } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { Check, CloudRain, Thermometer, Wind } from 'lucide-react-native';
-import { haritaKatmanlari, KatmanKey, KatmanIkonAdi } from './HavaDurumuHaritasi';
+import { haritaKatmanlari, KatmanKey, KatmanIkonAdi } from '@/types/haritaTypes';
 
 const ikonlar: Record<KatmanIkonAdi, React.ElementType> = {
     CloudRain,

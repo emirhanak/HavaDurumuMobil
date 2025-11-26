@@ -15,7 +15,6 @@ export default function RootLayout() {
       <SehirProvider>
         <Stack screenOptions={{ headerShown: false }}>
           <Stack.Screen name="(sekmeler)" />
-          <Stack.Screen name="havadurumu/[sehir]" />
           <Stack.Screen name="+not-found" />
         </Stack>
       </SehirProvider>

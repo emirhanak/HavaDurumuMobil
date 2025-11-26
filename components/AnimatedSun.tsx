@@ -51,7 +51,6 @@ export default function AnimatedSun({ size = 120, color = '#FFD700', offsetY = 0
           transform: [{ rotate: spin }],
           pointerEvents: 'none',
         }}
-        pointerEvents="none"
       >
         <Svg width={size} height={size}>
           <G originX={center} originY={center}>

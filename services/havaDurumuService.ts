@@ -6,7 +6,7 @@
 const JAVA_BACKEND_URL = (
   process.env.EXPO_PUBLIC_JAVA_BASE_URL ||
   process.env.EXPO_PUBLIC_BLEND_BASE_URL ||
-  "http://192.168.1.41:8080"
+  "http://192.168.1.42:8080"
 ).replace(/\/+$/, "");
 
 /* ======================= Tipler ======================= */
@@ -62,7 +62,7 @@ const TOMORROW_API_KEY = "PHJcZ4fkxsF6N1zQZcvKtgilMBqFgFzM";
 
 export async function fetchDailyForecast(lat: number, lon: number): Promise<GunlukTahmin[]> {
   if (!TOMORROW_API_KEY) {
-    console.error("Tomorrow API anahtarı tanımlanmamış veya geçersiz!");
+    // Error log removed
     return [];
   }
 
@@ -81,7 +81,7 @@ export async function fetchDailyForecast(lat: number, lon: number): Promise<Gunl
     const res = await fetch(url);
     if (!res.ok) {
       const errorText = await res.text().catch(() => "");
-      console.error(`Tomorrow API hata (${url}): ${res.status} ${errorText}`);
+      // Error log removed
       throw new Error(`Tomorrow API hata: ${res.status} ${errorText}`);
     }
 
@@ -108,7 +108,7 @@ export async function fetchDailyForecast(lat: number, lon: number): Promise<Gunl
     return formattedDailyForecast;
 
   } catch (e: any) {
-    console.error("Günlük tahmin çekilirken hata oluştu:", e);
+    // Error log removed
     return [];
   }
 }

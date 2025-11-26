@@ -39,7 +39,7 @@ export const SehirProvider = ({ children }: { children: ReactNode }) => {
         const yuklenenSehirler: Sehir[] = kayitliSehirlerString ? JSON.parse(kayitliSehirlerString) : [];
         setSehirler(yuklenenSehirler);
       } catch (e) {
-        console.error("Depodan şehirler yüklenemedi.", e);
+        // Error log removed
         setSehirler([]);
       } finally {
         setLoading(false);
@@ -52,7 +52,7 @@ export const SehirProvider = ({ children }: { children: ReactNode }) => {
     try {
       await AsyncStorage.setItem(SEHIRLER_KEY, JSON.stringify(yeniSehirler));
       setSehirler(yeniSehirler);
-    } catch (e) { console.error("Şehirler kaydedilemedi.", e); }
+    } catch (e) { /* Error log removed */ }
   };
 
   const sehirEkle = async (sehir: Sehir) => {

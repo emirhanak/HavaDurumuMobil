@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
-import { KatmanKey } from './HavaDurumuHaritasi';
+import { KatmanKey } from '@/types/haritaTypes';
 
 // DÜZELTME: objenin sonuna 'as const' ekliyoruz ve tip tanımını kaldırıyoruz.
 const legendData = {

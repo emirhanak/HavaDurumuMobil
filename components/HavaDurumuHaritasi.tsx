@@ -3,21 +3,13 @@ import { StyleSheet, View, TouchableOpacity, Text, Alert, Platform } from 'react
 import MapView, { Marker, UrlTile, PROVIDER_GOOGLE } from 'react-native-maps';
 import CustomMarker from './CustomMarker';
 import { mapStyle } from '@/temalar/mapStyle';
-import { Layers, Send, List, CloudRain, Thermometer, Wind } from 'lucide-react-native';
+import { Layers, Send, List } from 'lucide-react-native';
 import LayerMenu from './LayerMenu';
 import MapLegend from './MapLegend';
 import * as Location from 'expo-location';
 import { fetchWeatherFromBackend } from '@/services/havaDurumuService';
+import { KatmanKey } from '@/types/haritaTypes';
 
-// --- Tipler ve Sabitler ---
-const ikonlar = { CloudRain, Thermometer, Wind };
-export type KatmanIkonAdi = keyof typeof ikonlar;
-export type KatmanKey = 'precipitation_new' | 'temperature_new' | 'wind_speed';
-export interface HaritaKatmani {
-  key: KatmanKey;
-  title: string;
-  iconName: KatmanIkonAdi;
-}
 interface Sehir {
   id: string;
   ad: string;
@@ -31,13 +23,7 @@ interface HavaDurumuHaritasiProps {
   sehirler: Sehir[];
 }
 
-export const haritaKatmanlari: HaritaKatmani[] = [
-    { key: 'precipitation_new', title: 'Yağış', iconName: 'CloudRain' },
-    { key: 'temperature_new', title: 'Sıcaklık', iconName: 'Thermometer' },
-    { key: 'wind_speed', title: 'Rüzgar', iconName: 'Wind' },
-];
-
-const JAVA_BACKEND_URL = 'http://192.168.1.195:8080/api';
+const JAVA_BACKEND_URL = 'http://192.168.1.42:8080/api';
 
 export default function HavaDurumuHaritasi({ sehirler }: HavaDurumuHaritasiProps) {
   const [selectedCityId, setSelectedCityId] = useState<string | null>(null);

@@ -40,7 +40,7 @@ export default function AnimatedMovingCloud({
   });
 
   return (
-    <Animated.View style={{ position: 'absolute', left: 0, top: 0, width: size * 4, height: size * 2, transform: [{ translateX }, { translateY }], opacity }} pointerEvents="none">
+    <Animated.View style={{ position: 'absolute', left: 0, top: 0, width: size * 4, height: size * 2, transform: [{ translateX }, { translateY }], opacity, pointerEvents: 'none' }}>
       <Svg width={size} height={size * 0.7}>
         <Defs>
           <RadialGradient id="cloudGrad" cx="50%" cy="50%" r="50%">

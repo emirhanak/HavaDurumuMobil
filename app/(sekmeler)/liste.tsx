@@ -1,5 +1,6 @@
 import React from 'react';
-import { StyleSheet, SafeAreaView, View, StatusBar } from 'react-native';
+import { StyleSheet, View, StatusBar } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSettings } from '@/context/SettingsContext';
 import { useSehirler, Sehir } from '@/context/SehirContext'; // Sehir tipini de buradan import ediyoruz
 import SehirArama from '@/components/SehirArama';

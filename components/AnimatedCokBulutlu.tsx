@@ -34,7 +34,7 @@ export default function AnimatedCokBulutlu({ size = windowWidth, color = '#dbeaf
 
   // Doğal ve asimetrik bulut kümeleri
   return (
-    <Animated.View style={{ position: 'absolute', left: 0, top: 0, width: windowWidth, height: svgHeight, transform: [{ translateX }], zIndex: 1 }} pointerEvents="none">
+    <Animated.View style={{ position: 'absolute', left: 0, top: 0, width: windowWidth, height: svgHeight, transform: [{ translateX }], zIndex: 1, pointerEvents: 'none' }}>
       <Svg width={windowWidth} height={svgHeight}>
         <Defs>
           <RadialGradient id="cloudGrad" cx="50%" cy="50%" r="50%">
